@@ -10,6 +10,7 @@ uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 version = "1.11.0"
 
 [[deps.SASHA]]
+deps = ["Random"]
 path = "."
 uuid = "92a1a95a-80eb-4909-9b35-32c7aa151001"
 version = "0.1.0"
