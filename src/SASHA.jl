@@ -8,7 +8,7 @@ import Random: rand
 export fit!, loss, sasha!, sasha, Space, space
 
 struct Space{names, T}
-    vars::T
+    iters::T
 end
 
 Base.eltype(::Type{Space{names, T}}) where {names, T} = NamedTuple{names,
@@ -17,8 +17,8 @@ Base.eltype(::Type{Space{names, T}}) where {names, T} = NamedTuple{names,
 Base.firstindex(s::Space) = 1
 Base.keys(s::Space) = Base.OneTo(length(s))
 Base.lastindex(s::Space) = length(s)
-Base.length(s::Space) = length(s.vars) == 0 ? 0 : prod(length, s.vars)
-Base.size(s::Space) = length(s.vars) == 0 ? (0,) : map(length, s.vars)
+Base.length(s::Space) = length(s.iters) == 0 ? 0 : prod(length, s.iters)
+Base.size(s::Space) = length(s.iters) == 0 ? (0,) : map(length, s.iters)
 
 function Base.show(io::IO, s::Space)
     print(io, "$(length(s))-element Space")
@@ -26,13 +26,13 @@ end
 
 @inline function Base.getindex(s::Space{names}, i::Int) where names
     @boundscheck 1 ≤ i ≤ length(s) || throw(BoundsError(s, i))
-    strides = (1, cumprod(map(length, Base.front(s.vars)))...)
-    return NamedTuple{names}(map(getindex, s.vars, mod.((i - 1) .÷ strides, size(s)) .+ 1))
+    strides = (1, cumprod(map(length, Base.front(s.iters)))...)
+    return NamedTuple{names}(map(getindex, s.iters, mod.((i - 1) .÷ strides, size(s)) .+ 1))
 end
 
 @inline function Base.getindex(s::Space{names}, I::Vararg{Int}) where names
-    @boundscheck length(I) == length(s.vars) && all(1 .≤ I .≤ size(s)) || throw(BoundsError(s, I))
-    return NamedTuple{names}(map(getindex, s.vars, I))
+    @boundscheck length(I) == length(s.iters) && all(1 .≤ I .≤ size(s)) || throw(BoundsError(s, I))
+    return NamedTuple{names}(map(getindex, s.iters, I))
 end
 
 @inline function Base.getindex(s::Space, inds)
@@ -45,7 +45,7 @@ end
 end
 
 @inline function rand(rng::AbstractRNG, s::SamplerTrivial{T}) where T<:Space{names} where names
-    return NamedTuple{names}(map(var -> rand(rng, var), s[].vars))
+    return NamedTuple{names}(map(var -> rand(rng, var), s[].iters))
 end
 
 """
@@ -67,8 +67,8 @@ julia> collect(space(a=1:3, b=4:5))
 (a = 3, b = 5)
 ```
 """
-space(; vars...) = space(keys(vars), values(values(vars)))
-space(names::NTuple{N, Symbol}, vars::NTuple{N, Any}) where N = Space{names, typeof(vars)}(vars)
+space(; iters...) = space(keys(iters), values(values(iters)))
+space(names::NTuple{N, Symbol}, iters::NTuple{N, Any}) where N = Space{names, typeof(iters)}(iters)
 
 _fit!(model::Any, data::Union{Tuple, NamedTuple}, args::NamedTuple) = fit!(model, data...; args...)
 _fit!(model::Any, data::Any, args::NamedTuple) = fit!(model, data; args...)
