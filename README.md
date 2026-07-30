@@ -40,7 +40,7 @@ julia> function loss(model::MyModel, data)
        end
 ```
 
-Accordingly, we need to create a space (i.e., grid) of configurations over which the hyperparameters of the model are to be optimized:
+Accordingly, we need to create a space (i.e., grid) of configurations over which want to optimize the hyperparameters:
 
 ```julia
 julia> sp = space(a=0.0:0.5:1.0, b=0.0:0.5:1.0)
