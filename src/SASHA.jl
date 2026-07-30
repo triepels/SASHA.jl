@@ -148,7 +148,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
             prob = exp.(-n .* (loss .- minimum(loss)) ./ temp)
         end
 
-        if any(isnan, prob) || all(==(first(prob)), prob)
+        if all(isequal(first(prob)), prob)
             @warn "Unable to determine best arm. Terminating prematurely."
             keepat!(arms, 1)
             keepat!(loss, 1)
