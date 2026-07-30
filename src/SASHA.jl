@@ -203,7 +203,7 @@ See also [`sasha!`](@ref)
 """
 function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train::Any,
     val::Any; p::Real=0.8, maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
-    arms = map(x -> T(; x...), space)
+        arms = map(x -> T(; x...), space)
         return sasha!(rng, arms, train, val, p=p, maximize=maximize, args=args)
 end
 
@@ -213,7 +213,7 @@ sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; p::Real=0.8
 
 function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any,
     val::Any; p::Real=0.8, maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
-    arms = map(f, space)
+        arms = map(f, space)
         return sasha!(rng, arms, train, val, p=p, maximize=maximize, args=args)
 end
 
