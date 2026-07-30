@@ -114,6 +114,7 @@ number of available threads can be determined by calling Threads.nthreads().
 # Keyword Arguments
 - `p::Real=0.8`: average acceptance probability of the arms at the start of the
   optimization (i.e., before any arms are fitted).
+- `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `args::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
   `fit!` when fitting an arm.
@@ -125,7 +126,7 @@ Successive Halving.
 See also [`sasha`](@ref)
 """
 function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.8,
-    maximize::Bool=false, args::NamedTuple=NamedTuple())
+        nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple())
     !isempty(arms) || throw(ArgumentError("arms is empty"))
     0 < p < 1 || throw(ArgumentError("p must be in [0,1]"))
 
@@ -140,6 +141,17 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         
         for i in eachindex(arms)
             loss[i] = _loss(arms[i], val)
+        end
+
+        if n == nmax
+            if maximize
+                best = argmax(loss)
+            else
+                best = argmin(loss)
+            end
+            keepat!(arms, best)
+            keepat!(loss, best)
+            break
         end
 
         if maximize
@@ -165,9 +177,9 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     return first(arms), first(loss)
 end
 
-sasha!(arms::Vector, train::Any, val::Any; p::Real=0.8, maximize::Bool=false,
-    args::NamedTuple=NamedTuple()) =
-        sasha!(GLOBAL_RNG, arms, train, val, p=p, maximize=maximize, args=args)
+sasha!(arms::Vector, train::Any, val::Any; p::Real=0.8, nmax::Int=typemax(Int),
+        maximize::Bool=false, args::NamedTuple=NamedTuple()) =
+    sasha!(GLOBAL_RNG, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
 
 """
     sasha([rng=GLOBAL_RNG], T, space, train, val; <keyword arguments>)
@@ -191,6 +203,7 @@ number of available threads can be determined by calling Threads.nthreads().
 # Keyword Arguments
 - `p::Real=0.8`: average acceptance probability of the arms at the start of the
   optimization (i.e., before any arms are fitted).
+- `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `args::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
   `fit!` when fitting an arm.
@@ -201,24 +214,24 @@ Successive Halving.
 
 See also [`sasha!`](@ref)
 """
-function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train::Any,
-    val::Any; p::Real=0.8, maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
-        arms = map(x -> T(; x...), space)
-        return sasha!(rng, arms, train, val, p=p, maximize=maximize, args=args)
+function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any;
+        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
+    arms = map(x -> T(; x...), space)
+    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
 end
 
-sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; p::Real=0.8,
-    maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple =
-        sasha(GLOBAL_RNG, T, space, train, val, p=p, maximize=maximize, args=args)
+sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; p::Real=0.8, nmax::Int=typemax(Int),
+        maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple =
+    sasha(GLOBAL_RNG, T, space, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
 
-function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any,
-    val::Any; p::Real=0.8, maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
-        arms = map(f, space)
-        return sasha!(rng, arms, train, val, p=p, maximize=maximize, args=args)
+function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any;
+            p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
+    arms = map(f, space)
+    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
 end
 
-sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; p::Real=0.8,
-    maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple =
-        sasha(GLOBAL_RNG, f, space, train, val, p=p, maximize=maximize, args=args)
+sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; p::Real=0.8, nmax::Int=typemax(Int), 
+        maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple =
+    sasha(GLOBAL_RNG, f, space, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
 
 end

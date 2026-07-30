@@ -22,7 +22,9 @@ val = rand(2, 10)
 
 sp = space(η=logrange(1e-3, 1e-1, length=20))
 
-sasha(MyModel, sp, train, val, p=0.8, maximize=false, args=(epochs=100,))
-sasha(MyModel, rand(sp, 10), train, val, p=0.8, maximize=false, args=(epochs=100,))
-sasha((args) -> MyModel(; args...), sp, train, val, p=0.8, maximize=false, args=(epochs=100,))
-sasha((args) -> MyModel(; args...), rand(sp, 10), train, val, p=0.8, maximize=false, args=(epochs=100,))
+args = (p=0.8, nmax=20, maximize=false, args=(epochs=100,))
+
+sasha(MyModel, sp, train, val; args...)
+sasha(MyModel, rand(sp, 10), train, val; args...)
+sasha((args) -> MyModel(; args...), sp, train, val; args...)
+sasha((args) -> MyModel(; args...), rand(sp, 10), train, val; args...)
