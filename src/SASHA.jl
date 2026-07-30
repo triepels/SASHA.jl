@@ -1,7 +1,7 @@
 module SASHA
 
 using Base: @propagate_inbounds
-using Random: GLOBAL_RNG, AbstractRNG, SamplerTrivial
+using Random: AbstractRNG, default_rng, SamplerTrivial
 
 import Random: rand
 
@@ -98,7 +98,7 @@ See also [`sasha`](@ref), [`sasha!`](@ref).
 loss(model::Any, data::Any) = throw(MethodError(loss, (model, data)))
 
 """
-    sasha!([rng=GLOBAL_RNG], arms, train, val; kwargs)
+    sasha!([rng=default_rng()], arms, train, val; kwargs)
 
 Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
 the vector of arms in-place. Each arm is fitted on `train` by iteratively calling
@@ -178,11 +178,11 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
 end
 
 sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
-    sasha!(GLOBAL_RNG, arms, train, val; kwargs...)
+    sasha!(default_rng(), arms, train, val; kwargs...)
 
 """
-    sasha([rng=GLOBAL_RNG], T, space, train, val; kwargs)
-    sasha([rng=GLOBAL_RNG], f, space, train, val; kwargs)
+    sasha([rng=default_rng()], T, space, train, val; kwargs)
+    sasha([rng=default_rng()], f, space, train, val; kwargs)
 
 Optimizes the hyperparameters of a model using the SASHA optimizer. Initially, an arm
 is created for each configuration in `space` by calling the constructor of type `T`
@@ -220,7 +220,7 @@ function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train:
 end
 
 sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
-    sasha(GLOBAL_RNG, T, space, train, val; kwargs...)
+    sasha(default_rng(), T, space, train, val; kwargs...)
 
 function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any;
         p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
@@ -229,6 +229,6 @@ function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, tr
 end
 
 sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
-    sasha(GLOBAL_RNG, f, space, train, val; kwargs...)
+    sasha(default_rng(), f, space, train, val; kwargs...)
 
 end
