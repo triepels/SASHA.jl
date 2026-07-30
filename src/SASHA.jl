@@ -82,7 +82,7 @@ optimization functions.
 
 See also [`sasha`](@ref), [`sasha!`](@ref).
 """
-fit!(model::Any, data::Any; args::NamedTuple) = throw(MethodError(fit!, (model, data, args)))
+fit!(model::Any, data::Any; args...) = throw(MethodError(fit!, (model, data)))
 
 _loss(model::Any, data::Union{Tuple, NamedTuple}) = loss(model, data...)
 _loss(model::Any, data::Any) = loss(model, data)
