@@ -127,7 +127,7 @@ See also [`sasha`](@ref)
 """
 function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.8,
         nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple())
-    !isempty(arms) || throw(ArgumentError("arms is empty"))
+    !isempty(arms) || throw(ArgumentError("no arms to optimze"))
     0 < p < 1 || throw(ArgumentError("p must be in [0,1]"))
 
     loss = map(arm -> _loss(arm, val), arms)
