@@ -74,7 +74,7 @@ _fit!(model::Any, data::Union{Tuple, NamedTuple}, args::NamedTuple) = fit!(model
 _fit!(model::Any, data::Any, args::NamedTuple) = fit!(model, data; args...)
 
 """
-    fit!(model, data; <keyword arguments)
+    fit!(model, data; kwargs)
 
 Fits `model` on `data` based on any additional provided keyword arguments and returns
 the fitted model. Must be implemented for any custom model type before using the SASHA
@@ -98,7 +98,7 @@ See also [`sasha`](@ref), [`sasha!`](@ref).
 loss(model::Any, data::Any) = throw(MethodError(loss, (model, data)))
 
 """
-    sasha!([rng=GLOBAL_RNG], arms, train, val; <keyword arguments>)
+    sasha!([rng=GLOBAL_RNG], arms, train, val; kwargs)
 
 Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
 the vector of arms in-place. Each arm is fitted on `train` by iteratively calling
@@ -181,8 +181,8 @@ sasha!(arms::Vector, train::Any, val::Any; kwargs...) =
     sasha!(GLOBAL_RNG, arms, train, val, kwargs...)
 
 """
-    sasha([rng=GLOBAL_RNG], T, space, train, val; <keyword arguments>)
-    sasha([rng=GLOBAL_RNG], f, space, train, val; <keyword arguments>)
+    sasha([rng=GLOBAL_RNG], T, space, train, val; kwargs)
+    sasha([rng=GLOBAL_RNG], f, space, train, val; kwargs)
 
 Optimizes the hyperparameters of a model using the SASHA optimizer. Initially, an arm
 is created for each configuration in `space` by calling the constructor of type `T`
