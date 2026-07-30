@@ -177,9 +177,8 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     return first(arms), first(loss)
 end
 
-sasha!(arms::Vector, train::Any, val::Any; p::Real=0.8, nmax::Int=typemax(Int),
-        maximize::Bool=false, args::NamedTuple=NamedTuple()) =
-    sasha!(GLOBAL_RNG, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
+sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
+    sasha!(GLOBAL_RNG, arms, train, val, kwargs...)
 
 """
     sasha([rng=GLOBAL_RNG], T, space, train, val; <keyword arguments>)
@@ -220,18 +219,16 @@ function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train:
     return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
 end
 
-sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; p::Real=0.8, nmax::Int=typemax(Int),
-        maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple =
-    sasha(GLOBAL_RNG, T, space, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
+sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
+    sasha(GLOBAL_RNG, T, space, train, val; kwargs...)
 
 function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any;
-            p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
+        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
     arms = map(f, space)
     return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
 end
 
-sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; p::Real=0.8, nmax::Int=typemax(Int), 
-        maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple =
-    sasha(GLOBAL_RNG, f, space, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
+sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
+    sasha(GLOBAL_RNG, f, space, train, val; kwargs...)
 
 end
