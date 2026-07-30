@@ -15,7 +15,7 @@ Base.eltype(::Type{Space{names, T}}) where {names, T} = NamedTuple{names,
     Tuple{map(eltype, fieldtypes(T))...}}
 
 Base.firstindex(s::Space) = 1
-Base.keys(s::Space) = OneTo(length(s))
+Base.keys(s::Space) = Base.OneTo(length(s))
 Base.lastindex(s::Space) = length(s)
 Base.length(s::Space) = length(s.vars) == 0 ? 0 : prod(length, s.vars)
 Base.size(s::Space) = length(s.vars) == 0 ? (0,) : map(length, s.vars)
