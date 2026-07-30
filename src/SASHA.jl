@@ -109,7 +109,7 @@ splatted in the respective function calls. Returns a tuple with the winning arm 
 final loss.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
-number of available threads can be determined by calling Threads.nthreads().
+number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
 - `p::Real=0.8`: average acceptance probability of the arms at the start of the
@@ -198,7 +198,7 @@ tuples, the arguments are splatted in the respective function calls. Returns a t
 the winning arm and its final loss.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
-number of available threads can be determined by calling Threads.nthreads().
+number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
 - `p::Real=0.8`: average acceptance probability of the arms at the start of the
