@@ -82,7 +82,7 @@ optimization functions.
 
 See also [`sasha`](@ref), [`sasha!`](@ref).
 """
-fit!(model::Any, data::Any; args...) = throw(MethodError(fit!, (model, data)))
+fit!(model::Any, data::Any; kwargs...) = throw(MethodError(fit!, (model, data)))
 
 _loss(model::Any, data::Union{Tuple, NamedTuple}) = loss(model, data...)
 _loss(model::Any, data::Any) = loss(model, data)
@@ -178,7 +178,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
 end
 
 sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
-    sasha!(GLOBAL_RNG, arms, train, val, kwargs...)
+    sasha!(GLOBAL_RNG, arms, train, val; kwargs...)
 
 """
     sasha([rng=GLOBAL_RNG], T, space, train, val; kwargs)
