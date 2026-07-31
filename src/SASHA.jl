@@ -55,7 +55,7 @@ Base.@propagate_inbounds function Base.iterate(s::Space, state::Int=1)
     return s[state], state + 1
 end
 
-@inline function rand(rng::AbstractRNG, s::SamplerTrivial{T}) where T<:Space{names} where names
+@inline function rand(rng::AbstractRNG, s::SamplerTrivial{T}) where {names, T<:Space{names}}
     return NamedTuple{names}(map(var -> rand(rng, var), s[].iters))
 end
 
