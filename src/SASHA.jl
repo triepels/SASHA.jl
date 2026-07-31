@@ -116,7 +116,7 @@ the vector of arms in-place. Each arm is fitted on `train` by iteratively callin
 `fit!`(`model`, `train`; `kwargs`...). The loss of each arm is evaluated on `val` by
 calling `loss`(`model`, `val`). These functions must be implemented for the type of the
 model to be optimized. If `train` or `val` are tuples, the arguments are splatted in the
-respective function calls. Returns the model corresponding the winning arm.
+respective function calls. Returns the model corresponding to the winning arm.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
@@ -228,8 +228,9 @@ instead. `f` should take a named tuple with model parameters as input and initia
 new model based on the provided parameter configuration. Each arm is fitted on `train`
 by iteratively calling `fit`!(`model`, `train`; `kwargs`...). The loss of each arm is
 evaluated on `val` by calling `loss`(`model`, `val`). These functions must be implemented
-for the type of the model to be optimized. If `train` or `val` are tuples, the arguments are
-splatted in the respective function calls. Returns the model corresponding the winning arm.
+for the type of the model to be optimized. If `train` or `val` are tuples, the arguments
+are splatted in the respective function calls. Returns the model corresponding to the
+winning arm.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
