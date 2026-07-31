@@ -57,7 +57,7 @@ Here, `train` is the training set on which the model is fitted and `val` is the 
 An alternative way to call the optimizer is:
 
 ```julia
-julia> sasha((args)->MyModel(; args...), sp, train, val)
+julia> sasha((x)->MyModel(; x...), sp, train, val)
 ```
 
 This makes it possible to optimize a model that cannot have a constructor with named arguments.
