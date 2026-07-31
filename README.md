@@ -27,7 +27,7 @@ julia> import SASHA: fit!, loss
 Function `fit!` takes the model and fits it on data based on some optional keyword arguments:
 
 ```julia
-julia> function fit!(model::MyModel, data; args)
+julia> function fit!(model::MyModel, data; kwargs...)
            # Code to fit model...
        end
 ```
