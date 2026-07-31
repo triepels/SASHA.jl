@@ -82,8 +82,8 @@ julia> collect(space(a=1:3, b=4:5))
 space(; iters...) = space(keys(iters), values(values(iters)))
 space(names::NTuple{N, Symbol}, iters::NTuple{N, Any}) where N = Space{names, typeof(iters)}(iters)
 
-_fit!(model::Any, data::Union{Tuple, NamedTuple}, args::NamedTuple) = fit!(model, data...; args...)
-_fit!(model::Any, data::Any, args::NamedTuple) = fit!(model, data; args...)
+_fit!(model::Any, data::Union{Tuple, NamedTuple}, kwargs::NamedTuple) = fit!(model, data...; kwargs...)
+_fit!(model::Any, data::Any, kwargs::NamedTuple) = fit!(model, data; kwargs...)
 
 """
     fit!(model, data; kwargs)
@@ -114,7 +114,7 @@ loss(model::Any, data::Any) = throw(MethodError(loss, (model, data)))
 
 Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
 the vector of arms in-place. Each arm is fitted on `train` by iteratively calling
-`fit!`(`model`, `train`; `args`...). The loss of each arm is evaluated on `val` by
+`fit!`(`model`, `train`; `kwargs`...). The loss of each arm is evaluated on `val` by
 calling `loss`(`model`, `val`). These functions must be implemented for the type of the
 model to be optimized. If `train` or `val` are (named) tuples, the arguments are
 splatted in the respective function calls. Returns a tuple with the winning arm and its
@@ -128,7 +128,7 @@ number of available threads can be determined by calling `Threads.nthreads()`.
   optimization (i.e., before any arms are fitted).
 - `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
-- `args::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
+- `kwargs::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
   `fit!` when fitting an arm.
 
 # References
@@ -138,7 +138,7 @@ Successive Halving.
 See also [`sasha`](@ref)
 """
 function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.8,
-        nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple())
+        nmax::Int=typemax(Int), maximize::Bool=false, kwargs::NamedTuple=NamedTuple())
     !isempty(arms) || throw(ArgumentError("no arms to optimze"))
     0 < p < 1 || throw(ArgumentError("p must be in [0,1]"))
 
@@ -148,7 +148,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     n = 1
     while length(arms) > 1
         @sync for i in eachindex(arms)
-            Threads.@spawn arms[i] = _fit!(arms[i], train, args)
+            Threads.@spawn arms[i] = _fit!(arms[i], train, kwargs)
         end
         
         for i in eachindex(arms)
@@ -202,7 +202,7 @@ with model parameters provided as named arguments. Alternatively, if `T` cannot 
 constructor with named arguments, function `f` can be provided to create each arm
 instead. `f` should take a named tuple with model parameters as input and initialize a
 new model based on the provided parameter configuration. Each arm is fitted on `train`
-by iteratively calling `fit`!(`model`, `train`; `args`...). The loss of each arm is
+by iteratively calling `fit`!(`model`, `train`; `kwargs`...). The loss of each arm is
 evaluated on `val` by calling `loss`(`model`, `val`). These functions must be
 implemented for the type of the model to be optimized. If `train` or `val` are (named)
 tuples, the arguments are splatted in the respective function calls. Returns a tuple with
@@ -216,7 +216,7 @@ number of available threads can be determined by calling `Threads.nthreads()`.
   optimization (i.e., before any arms are fitted).
 - `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
-- `args::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
+- `kwargs::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
   `fit!` when fitting an arm.
 
 # References
@@ -226,18 +226,18 @@ Successive Halving.
 See also [`sasha!`](@ref)
 """
 function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any;
-        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
+        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, kwargs::NamedTuple=NamedTuple()) where V<:NamedTuple
     arms = map(x -> T(; x...), space)
-    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
+    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, kwargs=kwargs)
 end
 
 sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
     sasha(default_rng(), T, space, train, val; kwargs...)
 
 function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any;
-        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, args::NamedTuple=NamedTuple()) where V<:NamedTuple
+        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, kwargs::NamedTuple=NamedTuple()) where V<:NamedTuple
     arms = map(f, space)
-    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, args=args)
+    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, kwargs=kwargs)
 end
 
 sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
