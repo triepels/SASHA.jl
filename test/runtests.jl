@@ -22,7 +22,7 @@ val = rand(2, 10)
 
 sp = space(η=logrange(1e-3, 1e-1, length=20))
 
-kwargs = (p=0.9, nmax=20, maximize=false, kwargs=(epochs=100,))
+kwargs = (p=0.9, nmax=20, maximize=false, fit_kwargs=(epochs=100,))
 
 sasha(MyModel, sp, train, val; kwargs...)
 sasha(MyModel, rand(sp, 10), train, val; kwargs...)
