@@ -1,6 +1,5 @@
 module SASHA
 
-using Base: @propagate_inbounds
 using Random: AbstractRNG, default_rng, SamplerTrivial
 
 import Random: rand
@@ -51,7 +50,7 @@ end
     return [s[i] for i in inds]
 end
 
-@propagate_inbounds function Base.iterate(s::Space, state::Int=1)
+Base.@propagate_inbounds function Base.iterate(s::Space, state::Int=1)
     state > length(s) && return nothing
     return s[state], state + 1
 end
