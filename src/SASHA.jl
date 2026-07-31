@@ -95,7 +95,7 @@ See also [`sasha`](@ref), [`sasha!`](@ref).
 """
 fit!(model::Any, data::Any; kwargs...) = throw(MethodError(fit!, (model, data)))
 
-_loss(model::Any, data::Union{Tuple, NamedTuple}) = loss(model, data...)
+_loss(model::Any, data::Union{Tuple, NamedTuple}) = loss(model, data...)::Real
 _loss(model::Any, data::Any) = loss(model, data)::Real
 
 """
