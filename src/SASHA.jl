@@ -114,11 +114,10 @@ loss(model::Any, data::Any) = throw(MethodError(loss, (model, data)))
 
 Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
 the vector of arms in-place. Each arm is fitted on `train` by iteratively calling
-`fit!`(`model`, `train`; `kwargs`...). The loss of each arm is evaluated on `val` by
-calling `loss`(`model`, `val`). These functions must be implemented for the type of the
-model to be optimized. If `train` or `val` are (named) tuples, the arguments are
-splatted in the respective function calls. Returns a tuple with the winning arm and its
-final loss.
+`fit!`(`model`, `train`). The loss of each arm is evaluated on `val` by calling
+`loss`(`model`, `val`). These functions must be implemented for the type of the model to
+be optimized. If `train` or `val` are tuples, the arguments are splatted in the respective
+function calls. Returns a tuple with the winning arm and its final loss.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
@@ -202,11 +201,10 @@ with model parameters provided as named arguments. Alternatively, if `T` cannot 
 constructor with named arguments, function `f` can be provided to create each arm
 instead. `f` should take a named tuple with model parameters as input and initialize a
 new model based on the provided parameter configuration. Each arm is fitted on `train`
-by iteratively calling `fit`!(`model`, `train`; `kwargs`...). The loss of each arm is
-evaluated on `val` by calling `loss`(`model`, `val`). These functions must be
-implemented for the type of the model to be optimized. If `train` or `val` are (named)
-tuples, the arguments are splatted in the respective function calls. Returns a tuple with
-the winning arm and its final loss.
+by iteratively calling `fit`!(`model`, `train`). The loss of each arm is evaluated on
+`val` by calling `loss`(`model`, `val`). These functions must be implemented for the type
+of the model to be optimized. If `train` or `val` are tuples, the arguments are splatted
+in the respective function calls. Returns a tuple with the winning arm and its final loss.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
