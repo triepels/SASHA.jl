@@ -14,7 +14,7 @@ function fit!(model::MyModel, x::AbstractArray; epochs::Int = 1)
 end
 
 function loss(model::MyModel, x::AbstractArray)
-    return model.η + (1 - model.η)^(model.n + 1) + 1e-3 * rand()
+    return model.η + (1 - model.η)^(model.n + 1) + 0.1 * rand()
 end
 
 train = rand(2, 10)
@@ -22,7 +22,7 @@ val = rand(2, 10)
 
 sp = space(η=logrange(1e-3, 1e-1, length=20))
 
-kwargs = (p=0.8, nmax=20, maximize=false, kwargs=(epochs=100,))
+kwargs = (p=0.9, nmax=20, maximize=false, kwargs=(epochs=100,))
 
 sasha(MyModel, sp, train, val; kwargs...)
 sasha(MyModel, rand(sp, 10), train, val; kwargs...)

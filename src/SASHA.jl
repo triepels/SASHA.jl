@@ -116,13 +116,13 @@ the vector of arms in-place. Each arm is fitted on `train` by iteratively callin
 `fit!`(`model`, `train`). The loss of each arm is evaluated on `val` by calling
 `loss`(`model`, `val`). These functions must be implemented for the type of the model to
 be optimized. If `train` or `val` are tuples, the arguments are splatted in the respective
-function calls. Returns a tuple with the winning arm and its final loss.
+function calls. Returns the model corresponding the winning arm.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
-- `p::Real=0.8`: average acceptance probability of the arms at the start of the
+- `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization (i.e., before any arms are fitted).
 - `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
@@ -140,8 +140,23 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     !isempty(arms) || throw(ArgumentError("no arms to optimize"))
     0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
 
+    keep = Vector{Bool}(undef, length(arms))
     loss = map(arm -> _loss(arm, val), arms)
-    temp = -(sum(loss) / length(loss)) / log(p)
+    diff = Vector{eltype(loss)}(undef, length(arms))
+
+    if maximize
+        best = maximum(loss)
+        for i in eachindex(diff)
+            diff[i] = loss[i] - best
+        end
+    else
+        best = minimum(loss)
+        for i in eachindex(diff)
+            diff[i] = best - loss[i]
+        end
+    end
+
+    temp = minimum(diff) / log(p)
 
     n = 1
     while length(arms) > 1
@@ -154,37 +169,42 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         end
 
         if n == nmax
-            if maximize
-                best = argmax(loss)
-            else
-                best = argmin(loss)
-            end
-            keepat!(arms, best)
-            keepat!(loss, best)
-            break
+            ind = maximize ? argmax(loss) : argmin(loss)
+            keepat!(arms, ind)
+            return first(arms)
+        end
+
+        if all(isequal(first(loss)), loss)
+            @warn "Unable to determine best arm. Terminating prematurely."
+            keepat!(arms, 1)
+            return first(arms)
         end
 
         if maximize
-            prob = exp.(n .* (loss .- maximum(loss)) ./ temp)
+            best = maximum(loss)
+            for i in eachindex(diff)
+                diff[i] = loss[i] - best
+            end
         else
-            prob = exp.(-n .* (loss .- minimum(loss)) ./ temp)
+            best = minimum(loss)
+            for i in eachindex(diff)
+                diff[i] = best - loss[i]
+            end
         end
 
-        if all(isequal(first(prob)), prob)
-            @warn "Unable to determine best arm. Terminating prematurely."
-            keepat!(arms, 1)
-            keepat!(loss, 1)
-            break
+        for i in eachindex(keep)
+            keep[i] = rand(rng) ≤ exp(n * diff[i] / temp)
         end
 
-        discard = findall(<(rand(rng)), prob)
-        deleteat!(arms, discard)
-        deleteat!(loss, discard)
+        keepat!(arms, keep)
+        keepat!(loss, keep)
+        keepat!(diff, keep)
+        keepat!(keep, keep)
 
         n += 1
     end
 
-    return first(arms), first(loss)
+    return first(arms)
 end
 
 sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
@@ -203,13 +223,13 @@ new model based on the provided parameter configuration. Each arm is fitted on `
 by iteratively calling `fit`!(`model`, `train`). The loss of each arm is evaluated on
 `val` by calling `loss`(`model`, `val`). These functions must be implemented for the type
 of the model to be optimized. If `train` or `val` are tuples, the arguments are splatted
-in the respective function calls. Returns a tuple with the winning arm and its final loss.
+in the respective function calls. Returns the model corresponding the winning arm.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
-- `p::Real=0.8`: average acceptance probability of the arms at the start of the
+- `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization (i.e., before any arms are fitted).
 - `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
