@@ -96,7 +96,7 @@ See also [`sasha`](@ref), [`sasha!`](@ref).
 fit!(model::Any, data::Any; kwargs...) = throw(MethodError(fit!, (model, data)))
 
 _loss(model::Any, data::Union{Tuple, NamedTuple}) = loss(model, data...)
-_loss(model::Any, data::Any) = loss(model, data)
+_loss(model::Any, data::Any) = loss(model, data)::Real
 
 """
     loss(model, data)
@@ -140,7 +140,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     !isempty(arms) || throw(ArgumentError("no arms to optimize"))
     0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
 
-    loss = map(arm -> _loss(arm, val)::Real, arms)
+    loss = map(arm -> _loss(arm, val), arms)
     temp = -(sum(loss) / length(loss)) / log(p)
 
     n = 1
