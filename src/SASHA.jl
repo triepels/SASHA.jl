@@ -11,6 +11,18 @@ struct Space{names, T}
     iters::T
 end
 
+"""
+    Space{names}(iters::Tuple)
+
+Constructs a `Space` with the given `names` (a tuple of Symbols) from a tuple of iterators.
+"""
+function Space{names}(iters::T) where {names, T<:Tuple}
+    names isa Tuple || throw(ArgumentError("names must be a tuple"))
+    all(name -> name isa Symbol, names) || throw(ArgumentError("names must be a tuple of Symbols"))
+    length(names) == length(iters) || throw(ArgumentError("names and iterators must have matching lengths"))
+    return Space{names, typeof(iters)}(iters)
+end
+
 Base.eltype(::Type{Space{names, T}}) where {names, T} = NamedTuple{names,
     Tuple{map(eltype, fieldtypes(T))...}}
 
