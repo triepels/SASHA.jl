@@ -101,8 +101,8 @@ _loss(model::Any, data::Any) = loss(model, data)
 """
     loss(model, data)
 
-Evaluates the loss of `model` on `data`. Must be implemented for any custom model type
-before using the SASHA optimization functions.
+Evaluates the loss of `model` on `data`. Should return a concrete subtype of a Real. Must
+be implemented for any custom model type before using the SASHA optimization functions.
 
 See also [`sasha`](@ref), [`sasha!`](@ref).
 """
@@ -140,7 +140,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     !isempty(arms) || throw(ArgumentError("no arms to optimize"))
     0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
 
-    loss = map(arm -> _loss(arm, val), arms)
+    loss = map(arm -> _loss(arm, val)::Real, arms)
     temp = -(sum(loss) / length(loss)) / log(p)
 
     n = 1
