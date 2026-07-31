@@ -113,21 +113,27 @@ loss(model::Any, data::Any) = throw(MethodError(loss, (model, data)))
 
 Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
 the vector of arms in-place. Each arm is fitted on `train` by iteratively calling
-`fit!`(`model`, `train`). The loss of each arm is evaluated on `val` by calling
-`loss`(`model`, `val`). These functions must be implemented for the type of the model to
-be optimized. If `train` or `val` are tuples, the arguments are splatted in the respective
-function calls. Returns the model corresponding the winning arm.
+`fit!`(`model`, `train`; `kwargs`...). The loss of each arm is evaluated on `val` by
+calling `loss`(`model`, `val`). These functions must be implemented for the type of the
+model to be optimized. If `train` or `val` are tuples, the arguments are splatted in the
+respective function calls. Returns the model corresponding the winning arm.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
-  optimization (i.e., before any arms are fitted).
+  optimization.
 - `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `kwargs::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
   `fit!` when fitting an arm.
+
+# Notes
+The annealing process differs from the one described in (Triepels, 2023) in that no initial
+temperature has to be provided. Instead, the initial temperature is determined before the
+first round such that the worst arm has an acceptance probability of `p`. In this way, the
+initial temperature is better calibrated to the scale of the loss function.
 
 # References
 Triepels, R. (2023). SASHA: Hyperparameter Optimization by Simulated Annealing and
@@ -220,21 +226,27 @@ with model parameters provided as named arguments. Alternatively, if `T` cannot 
 constructor with named arguments, function `f` can be provided to create each arm
 instead. `f` should take a named tuple with model parameters as input and initialize a
 new model based on the provided parameter configuration. Each arm is fitted on `train`
-by iteratively calling `fit`!(`model`, `train`). The loss of each arm is evaluated on
-`val` by calling `loss`(`model`, `val`). These functions must be implemented for the type
-of the model to be optimized. If `train` or `val` are tuples, the arguments are splatted
-in the respective function calls. Returns the model corresponding the winning arm.
+by iteratively calling `fit`!(`model`, `train`; `kwargs`...). The loss of each arm is
+evaluated on `val` by calling `loss`(`model`, `val`). These functions must be implemented
+for the type of the model to be optimized. If `train` or `val` are tuples, the arguments are
+splatted in the respective function calls. Returns the model corresponding the winning arm.
 
 Multiple threads will be used (if available) to fit all remaining arms each round. The
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
-  optimization (i.e., before any arms are fitted).
+  optimization.
 - `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `kwargs::NamedTuple=NamedTuple())`: optional named arguments that are passed on to
   `fit!` when fitting an arm.
+
+# Notes
+The annealing process differs from the one described in (Triepels, 2023) in that no initial
+temperature has to be provided. Instead, the initial temperature is determined before the
+first round such that the worst arm has an acceptance probability of `p`. In this way, the
+initial temperature is better calibrated to the scale of the loss function.
 
 # References
 Triepels, R. (2023). SASHA: Hyperparameter Optimization by Simulated Annealing and
