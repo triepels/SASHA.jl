@@ -31,8 +31,8 @@ Base.lastindex(s::Space) = length(s)
 Base.length(s::Space) = length(s.iters) == 0 ? 0 : prod(length, s.iters)
 Base.size(s::Space) = length(s.iters) == 0 ? (0,) : map(length, s.iters)
 
-function Base.show(io::IO, s::Space)
-    print(io, "$(length(s))-element Space")
+function Base.show(io::IO, s::Space{names}) where names
+    print(io, "$(length(s))-element Space{$names}")
 end
 
 @inline function Base.getindex(s::Space{names}, i::Int) where names
