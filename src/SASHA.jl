@@ -4,7 +4,7 @@ using Random: AbstractRNG, default_rng, SamplerTrivial
 
 import Random: rand
 
-export fit!, loss, sasha!, sasha, Space, space
+export fit!, loss, sasha!, sasha, sasha_progress, Space, space
 
 struct Space{names, T}
     iters::T
@@ -109,6 +109,17 @@ See also [`sasha`](@ref), [`sasha!`](@ref).
 loss(model::Any, data::Any) = throw(MethodError(loss, (model, data)))
 
 """
+    sasha_progress(state)
+
+A ready-made callback function for [`sasha`](@ref) and [`sasha!`](@ref) to log the process
+of the optimization at the end of each round.
+"""
+function sasha_progress(state)
+    @info "SASHA round $(state.round)" arms=length(state.arms) best=state.best elapsed=state.elapsed
+    return false
+end
+
+"""
     sasha!([rng=default_rng()], arms, train, val; kwargs)
 
 Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
@@ -124,10 +135,22 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 # Keyword Arguments
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
-- `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `fit_kwargs::NamedTuple=NamedTuple())`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
+- `callback::Function=(state) -> false`: callback function that is called at the end of
+  each round. Can be used to monitor the optimization progress or terminate the process
+  based on custom stopping criterion. Should return a Bool to indicate whether the process
+  must terminate at the current round. See the state arguments below for more details on 
+  the objects passed on to the callback function via `state`.
+
+# State Arguments
+- `round`: current round number.
+- `arms`: all remaining arms. 
+- `loss`: loss of all remaining arms.
+- `best`: loss of the winning arm.
+- `temp`: current temperature.
+- `elapsed`: time elapsed since the start of the optimization in seconds.
 
 # Notes
 The annealing process differs from the one described in (Triepels, 2023) in that no initial
@@ -142,7 +165,7 @@ Successive Halving.
 See also [`sasha`](@ref)
 """
 function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.8,
-        nmax::Int=typemax(Int), maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple())
+        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
     !isempty(arms) || throw(ArgumentError("no arms to optimize"))
     0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
 
@@ -168,7 +191,8 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         arms are identical."))
     end
 
-    n = 1
+    round = 1
+    t = time()
     while length(arms) > 1
         @sync for i in eachindex(arms)
             Threads.@spawn arms[i] = _fit!(arms[i], train, fit_kwargs)
@@ -176,12 +200,6 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         
         for i in eachindex(arms)
             loss[i] = _loss(arms[i], val)
-        end
-
-        if n == nmax
-            ind = maximize ? argmax(loss) : argmin(loss)
-            keepat!(arms, ind)
-            return first(arms)
         end
 
         if all(isequal(first(loss)), loss)
@@ -203,7 +221,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         end
 
         for i in eachindex(keep)
-            keep[i] = rand(rng) ≤ exp(n * diff[i] / temp)
+            keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
         end
 
         keepat!(arms, keep)
@@ -211,7 +229,14 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         keepat!(diff, keep)
         keepat!(keep, keep)
 
-        n += 1
+        state = (round=round, arms=arms, loss=loss, best=best, temp=temp, elapsed=time()-t)
+        if callback(state)
+            ind = maximize ? argmax(loss) : argmin(loss)
+            keepat!(arms, ind)
+            return first(arms)
+        end
+
+        round += 1
     end
 
     return first(arms)
@@ -242,10 +267,22 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 # Keyword Arguments
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
-- `nmax::Int=typemax(Int)`: maximum number of rounds.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `fit_kwargs::NamedTuple=NamedTuple())`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
+- `callback::Function=(state) -> false`: callback function that is called at the end of
+  each round. Can be used to monitor the optimization progress or terminate the process
+  based on custom stopping criterion. Should return a Bool to indicate whether the process
+  must terminate at the current round. See the state arguments below for more details on 
+  the objects passed on to the callback function via `state`.
+
+# State Arguments
+- `round`: current round number.
+- `arms`: all remaining arms. 
+- `loss`: loss of all remaining arms.
+- `best`: loss of the winning arm.
+- `temp`: current temperature.
+- `elapsed`: time elapsed since the start of the optimization in seconds.
 
 # Notes
 The annealing process differs from the one described in (Triepels, 2023) in that no initial
@@ -260,18 +297,18 @@ Successive Halving.
 See also [`sasha!`](@ref)
 """
 function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any;
-        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple()) where V<:NamedTuple
+        p::Real=0.8, maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false) where V<:NamedTuple
     arms = map(x -> T(; x...), space)
-    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, fit_kwargs=fit_kwargs)
+    return sasha!(rng, arms, train, val, p=p, maximize=maximize, fit_kwargs=fit_kwargs, callback=callback)
 end
 
 sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
     sasha(default_rng(), T, space, train, val; kwargs...)
 
 function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any;
-        p::Real=0.8, nmax::Int=typemax(Int), maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple()) where V<:NamedTuple
+        p::Real=0.8, maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false) where V<:NamedTuple
     arms = map(f, space)
-    return sasha!(rng, arms, train, val, p=p, nmax=nmax, maximize=maximize, fit_kwargs=fit_kwargs)
+    return sasha!(rng, arms, train, val, p=p, maximize=maximize, fit_kwargs=fit_kwargs, callback=callback)
 end
 
 sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =

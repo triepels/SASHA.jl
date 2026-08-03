@@ -22,7 +22,9 @@ val = rand(2, 10)
 
 sp = space(η=logrange(1e-3, 1e-1, length=20))
 
-kwargs = (p=0.9, nmax=20, maximize=false, fit_kwargs=(epochs=100,))
+callback(state) = state.round ≥ 10 ? true : false
+
+kwargs = (p=0.9, maximize=false, fit_kwargs=(epochs=100,), callback=callback)
 
 sasha(MyModel, sp, train, val; kwargs...)
 sasha(MyModel, rand(sp, 10), train, val; kwargs...)
