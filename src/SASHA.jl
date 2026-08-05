@@ -137,11 +137,11 @@ function Base.show(io::IO, c::SashaCheckpoint)
 end
 
 """
-    sasha_save_checkpoint(io, state)
+    sasha_save_checkpoint(filename, state)
 
-Creates a SASHA checkpoint based on `state` and writes it to `io`. Can be used in a
-callback function provided to [`sasha`](@ref) or [`sasha!`](@ref) to save the state of the
-optimizer to disk and resume the optimization at this point later on.
+Creates a SASHA checkpoint and writes it to a file. Can be used in a callback function
+provided to [`sasha`](@ref) or [`sasha!`](@ref) to save the state of the optimizer to disk
+and resume the optimization at the same state later on.
 
 # Notes
 Ignores the state of the Random Number Generation (RNG). Restarting the optimization at a
@@ -151,14 +151,14 @@ before resuming the SASHA optimizer.
 
 See also [`sasha_load_checkpoint`](@ref)
 """
-function sasha_save_checkpoint(io::IO, state::NamedTuple)
-    return serialize(io, SashaCheckpoint(state.arms, state.round, state.temp))
+function sasha_save_checkpoint(filename::AbstractString, state::NamedTuple)
+    return serialize(filename, SashaCheckpoint(state.arms, state.round, state.temp))
 end
 
 """
-    sasha_load_checkpoint(io)
+    sasha_load_checkpoint(filename)
 
-Loads a SASHA checkpoint from `io`. The returned checkpoint can be supplied to
+Loads a SASHA checkpoint from a file. The returned checkpoint can be supplied to
 [`sasha`](@ref) or [`sasha!`](@ref) to resume the optimizer at the saved state.
 
 # Notes
@@ -169,8 +169,8 @@ before resuming the SASHA optimizer.
 
 See also [`sasha_save_checkpoint`](@ref)    
 """
-function sasha_load_checkpoint(io::IO)
-    return deserialize(io)::SashaCheckpoint
+function sasha_load_checkpoint(filename::AbstractString)
+    return deserialize(filename)::SashaCheckpoint
 end
 
 function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp::Real, train::Any, val::Any,
