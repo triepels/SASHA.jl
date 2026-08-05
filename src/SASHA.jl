@@ -245,7 +245,7 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
-- `fit_kwargs::NamedTuple=NamedTuple())`: optional keyword arguments that are passed on to
+- `fit_kwargs::NamedTuple=NamedTuple()`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
 - `callback::Function=(state) -> false`: callback function that is called at the end of
   each round. Can be used to monitor the optimization progress or terminate the process
@@ -340,7 +340,7 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
-- `fit_kwargs::NamedTuple=NamedTuple())`: optional keyword arguments that are passed on to
+- `fit_kwargs::NamedTuple=NamedTuple()`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
 - `callback::Function=(state) -> false`: callback function that is called at the end of
   each round. Can be used to monitor the optimization progress or terminate the process
