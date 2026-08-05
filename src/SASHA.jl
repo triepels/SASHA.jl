@@ -146,7 +146,7 @@ and resume the optimization at the same state later on.
 # Notes
 Ignores the state of the Random Number Generation (RNG). Restarting the optimization at a
 checkpoint can yield a different outcome as arms are discarded based on a stochastic
-annealing process. If exact reproducability is of importance, make sure to re-seed the RNG
+annealing process. If exact reproducibility is of importance, make sure to re-seed the RNG
 before resuming the SASHA optimizer.
 
 See also [`sasha_load_checkpoint`](@ref)
@@ -164,7 +164,7 @@ Loads a SASHA checkpoint from a file. The returned checkpoint can be supplied to
 # Notes
 Ignores the state of the Random Number Generation (RNG). Restarting the optimization at a
 checkpoint can yield a different outcome as arms are discarded based on a stochastic
-annealing process. If exact reproducability is of importance, make sure to re-seed the RNG
+annealing process. If exact reproducibility is of importance, make sure to re-seed the RNG
 before resuming the SASHA optimizer.
 
 See also [`sasha_save_checkpoint`](@ref)    
