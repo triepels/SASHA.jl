@@ -4,7 +4,7 @@ using Random: AbstractRNG, default_rng, SamplerTrivial
 
 import Random: rand
 
-export fit!, loss, sasha!, sasha, Space, space
+export fit!, loss, sasha!, sasha, sasha_progress, Space, space
 
 struct Space{names, T}
     iters::T
@@ -109,12 +109,12 @@ See also [`sasha`](@ref), [`sasha!`](@ref).
 loss(model::Any, data::Any) = throw(MethodError(loss, (model, data)))
 
 """
-    progress(state)
+    sasha_progress(state)
 
 A ready-made callback function for [`sasha`](@ref) and [`sasha!`](@ref) to log the process
 of the optimization at the end of each round.
 """
-function progress(state)
+function sasha_progress(state)
     @info "SASHA round $(state.round)" arms=length(state.arms) best=state.best elapsed=state.elapsed
     return false
 end
