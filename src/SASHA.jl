@@ -139,7 +139,7 @@ end
 """
     sasha_save_checkpoint(filename, state)
 
-Creates a SASHA checkpoint and writes it to a file. Can be used in a callback function
+Creates a SASHA checkpoint and writes it to a file. Can be used inside a callback function
 provided to [`sasha`](@ref) or [`sasha!`](@ref) to save the state of the optimizer to disk
 and resume the optimization at the same state later on.
 
