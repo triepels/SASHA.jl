@@ -1,10 +1,12 @@
 module SASHA
 
 using Random: AbstractRNG, default_rng, SamplerTrivial
+using Serialization: serialize, deserialize
 
 import Random: rand
 
-export fit!, loss, sasha!, sasha, sasha_progress, Space, space
+export fit!, loss, sasha!, sasha, SashaCheckpoint, sasha_load_checkpoint, sasha_progress,
+        sasha_save_checkpoint, Space, space
 
 struct Space{names, T}
     iters::T
@@ -120,78 +122,62 @@ function sasha_progress(state)
 end
 
 """
-    sasha!([rng=default_rng()], arms, train, val; kwargs)
+    SashaCheckpoint(arms, round, temp)
 
-Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
-the vector of arms in-place. Each arm is fitted on `train` by iteratively calling
-`fit!`(`model`, `train`; `kwargs`...). The loss of each arm is evaluated on `val` by
-calling `loss`(`model`, `val`). These functions must be implemented for the type of the
-model to be optimized. If `train` or `val` are tuples, the arguments are splatted in the
-respective function calls. Returns the model corresponding to the winning arm.
+Create a SASHA checkpoint to resume the optimization at the provided state later on.
+"""
+struct SashaCheckpoint{A,T}
+    arms::Vector{A}
+    round::Int
+    temp::T
+end
 
-Multiple threads will be used (if available) to fit all remaining arms each round. The
-number of available threads can be determined by calling `Threads.nthreads()`.
+function Base.show(io::IO, c::SashaCheckpoint)
+    print(io, "$(typeof(c)) with $(length(c.arms)) arms")
+end
 
-# Keyword Arguments
-- `p::Real=0.8`: acceptance probability of the worst arm at the start of the
-  optimization.
-- `maximize::Bool=false`: whether the loss of the arms should be maximized.
-- `fit_kwargs::NamedTuple=NamedTuple())`: optional keyword arguments that are passed on to
-  `fit!` when fitting an arm.
-- `callback::Function=(state) -> false`: callback function that is called at the end of
-  each round. Can be used to monitor the optimization progress or terminate the process
-  based on custom stopping criterion. Should return a Bool to indicate whether the process
-  must terminate at the current round. See the state arguments below for more details on 
-  the objects passed on to the callback function via `state`.
+"""
+    sasha_save_checkpoint(io, state)
 
-# State Arguments
-- `round`: current round number.
-- `arms`: all remaining arms. 
-- `loss`: loss of all remaining arms.
-- `best`: loss of the winning arm.
-- `temp`: current temperature.
-- `elapsed`: time elapsed since the start of the optimization in seconds.
+Creates a SASHA checkpoint based on `state` and writes it to `io`. Can be used in a
+callback function provided to [`sasha`](@ref) or [`sasha!`](@ref) to save the state of the
+optimizer to disk and resume the optimization at this point later on.
 
 # Notes
-The annealing process differs from the one described in (Triepels, 2023) in that no initial
-temperature has to be provided. Instead, the initial temperature is determined before the
-first round such that the worst arm has an acceptance probability of `p`. In this way, the
-initial temperature is better calibrated to the scale of the loss function.
+Ignores the state of the Random Number Generation (RNG). Restarting the optimization at a
+checkpoint can yield a different outcome as arms are discarded based on a stochastic
+annealing process. If exact reproducability is of importance, make sure to re-seed the RNG
+before resuming the SASHA optimizer.
 
-# References
-Triepels, R. (2023). SASHA: Hyperparameter Optimization by Simulated Annealing and
-Successive Halving.
-
-See also [`sasha`](@ref)
+See also [`sasha_load_checkpoint`](@ref)
 """
-function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.8,
-        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
-    !isempty(arms) || throw(ArgumentError("no arms to optimize"))
-    0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
+function sasha_save_checkpoint(io::IO, state::NamedTuple)
+    return serialize(io, SashaCheckpoint(state.arms, state.round, state.temp))
+end
 
+"""
+    sasha_load_checkpoint(io)
+
+Loads a SASHA checkpoint from `io`. The returned checkpoint can be supplied to
+[`sasha`](@ref) or [`sasha!`](@ref) to resume the optimizer at the saved state.
+
+# Notes
+Ignores the state of the Random Number Generation (RNG). Restarting the optimization at a
+checkpoint can yield a different outcome as arms are discarded based on a stochastic
+annealing process. If exact reproducability is of importance, make sure to re-seed the RNG
+before resuming the SASHA optimizer.
+
+See also [`sasha_save_checkpoint`](@ref)    
+"""
+function sasha_load_checkpoint(io::IO)
+    return deserialize(io)::SashaCheckpoint
+end
+
+function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp::Real, train::Any, val::Any,
+        maximize::Bool, fit_kwargs::NamedTuple, callback::Function)
     keep = Vector{Bool}(undef, length(arms))
-    loss = map(arm -> _loss(arm, val), arms)
     diff = Vector{eltype(loss)}(undef, length(arms))
 
-    if maximize
-        best = maximum(loss)
-        for i in eachindex(diff)
-            diff[i] = loss[i] - best
-        end
-    else
-        best = minimum(loss)
-        for i in eachindex(diff)
-            diff[i] = best - loss[i]
-        end
-    end
-
-    temp = minimum(diff) / log(p)
-    if iszero(temp)
-        throw(ArgumentError("Cannot calibrate annealing schedule. The inital loss of all \
-        arms are identical."))
-    end
-
-    round = 1
     t = time()
     while length(arms) > 1
         @sync for i in eachindex(arms)
@@ -242,8 +228,94 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     return first(arms)
 end
 
+"""
+    sasha!([rng=default_rng()], arms, train, val; kwargs)
+
+Performs hyperparameter optimization using the SASHA optimizer on `arms` by modifying
+the vector of arms in-place. Each arm is fitted on `train` by iteratively calling
+`fit!`(`model`, `train`; `kwargs`...). The loss of each arm is evaluated on `val` by
+calling `loss`(`model`, `val`). These functions must be implemented for the type of the
+model to be optimized. If `train` or `val` are tuples, the arguments are splatted in the
+respective function calls. Returns the model corresponding to the winning arm.
+
+Multiple threads will be used (if available) to fit all remaining arms each round. The
+number of available threads can be determined by calling `Threads.nthreads()`.
+
+# Keyword Arguments
+- `p::Real=0.8`: acceptance probability of the worst arm at the start of the
+  optimization.
+- `maximize::Bool=false`: whether the loss of the arms should be maximized.
+- `fit_kwargs::NamedTuple=NamedTuple())`: optional keyword arguments that are passed on to
+  `fit!` when fitting an arm.
+- `callback::Function=(state) -> false`: callback function that is called at the end of
+  each round. Can be used to monitor the optimization progress or terminate the process
+  based on custom stopping criterion. Should return a Bool to indicate whether the process
+  must terminate at the current round. See the state arguments below for more details on 
+  the objects passed on to the callback function via `state`.
+
+# State Arguments
+- `round`: current round number.
+- `arms`: all remaining arms. 
+- `loss`: loss of all remaining arms.
+- `best`: loss of the winning arm.
+- `temp`: current temperature.
+- `elapsed`: time elapsed since the start of the optimization in seconds.
+
+# Notes
+The annealing process differs from the one described in (Triepels, 2023) in that no initial
+temperature has to be provided. Instead, the initial temperature is determined before the
+first round such that the worst arm has an acceptance probability of `p`. In this way, the
+initial temperature is better calibrated to the scale of the loss function.
+
+# References
+Triepels, R. (2023). SASHA: Hyperparameter Optimization by Simulated Annealing and
+Successive Halving.
+
+See also [`sasha`](@ref)
+"""
+function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.8,
+        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
+    !isempty(arms) || throw(ArgumentError("no arms to optimize"))
+    0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
+
+    loss = map(arm -> _loss(arm, val), arms)
+
+    if maximize
+        best = maximum(loss)
+        min_diff = minimum((l) -> l - best, loss)
+    else
+        best = minimum(loss)
+        min_diff = minimum((l) -> best - l, loss)
+    end
+
+    temp = min_diff / log(p)
+    if iszero(temp)
+        throw(ArgumentError("Cannot calibrate annealing schedule. The inital loss of all \
+        arms are identical."))
+    end
+
+    return _sasha!(rng, arms, loss, 1, temp, train, val, maximize, fit_kwargs, callback)
+end
+
 sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
     sasha!(default_rng(), arms, train, val; kwargs...)
+
+"""
+    sasha!([rng=default_rng()], checkpoint, train, val; kwargs)
+
+Resumes the SASHA optimizer at a saved checkpoint by modifying `checkpoint` in-place.
+
+See also [`sasha_save_checkpoint`](@ref), [`sasha_load_checkpoint`](@ref)
+"""
+function sasha!(rng::AbstractRNG, checkpoint::SashaCheckpoint, train::Any, val::Any;
+        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
+    !isempty(checkpoint.arms) || throw(ArgumentError("no arms to optimize"))
+    loss = map(arm -> _loss(arm, val), checkpoint.arms)
+    return _sasha!(rng, checkpoint.arms, loss, checkpoint.round + 1, checkpoint.temp, train, val, maximize, fit_kwargs, callback)
+end
+
+sasha!(checkpoint::SashaCheckpoint, train::Any, val::Any; kwargs...) =
+    sasha!(default_rng(), checkpoint, train, val; kwargs...)
 
 """
     sasha([rng=default_rng()], T, space, train, val; kwargs)
@@ -313,5 +385,20 @@ end
 
 sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
     sasha(default_rng(), f, space, train, val; kwargs...)
+
+"""
+    sasha([rng=default_rng()], checkpoint, train, val; kwargs...)
+
+Resumes the SASHA optimizer at a saved checkpoint.
+
+See also [`sasha_save_checkpoint`](@ref), [`sasha_load_checkpoint`](@ref)
+"""
+function sasha(rng::AbstractRNG, checkpoint::SashaCheckpoint, train::Any, val::Any;
+        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
+    return sasha!(rng, deepcopy(checkpoint), train, val, maximize=maximize, fit_kwargs=fit_kwargs, callback=callback)
+end
+
+sasha(checkpoint::SashaCheckpoint, train::Any, val::Any; kwargs...) =
+    sasha(default_rng(), checkpoint, train, val; kwargs...)
 
 end
