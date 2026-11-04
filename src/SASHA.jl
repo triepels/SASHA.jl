@@ -291,7 +291,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
 
     temp = min_diff / log(p)
     if iszero(temp)
-        throw(ArgumentError("Cannot calibrate annealing schedule. The inital loss of all \
+        throw(ArgumentError("Cannot calibrate annealing schedule; the inital loss of all \
         arms are identical."))
     end
 
