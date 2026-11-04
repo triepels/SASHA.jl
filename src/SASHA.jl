@@ -189,8 +189,9 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         end
 
         if all(isequal(first(loss)), loss)
-            @warn "Unable to determine best arm. Terminating prematurely."
-            keepat!(arms, 1)
+            @warn "Cannot determine the best arm; the loss of all arms are identical. \
+            Choosing the winning arm at random."
+            keepat!(arms, rand(rng, keys(arms)))
             return first(arms)
         end
 
