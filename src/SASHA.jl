@@ -224,11 +224,10 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             end
         end
 
-        if count(keep) == 0
+        n = count(keep)
+        if n == 0
             throw(ErrorException("Optimization failed; all arms have been discarded."))
-        end
-
-        if count(keep) > 1
+        elseif n > 1
             tied = true
             for i in eachindex(arms)
                 if !keep[i]
