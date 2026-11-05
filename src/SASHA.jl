@@ -196,7 +196,6 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             end
         end
         
-        tied = true
         best = maximize ? typemin(eltype(loss)) : typemax(eltype(loss))
         for i in eachindex(arms)
             if !keep[i]
@@ -211,27 +210,28 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
                     @warn "An arm cannot be evaluated. It will be discarded at the end of \
                     the round." round=round exception=(e, catch_backtrace())
                     keep[i] = false
+                    continue
                 end
-            else
-                if !isfinite(loss[i])
-                    @warn "An arm has a non-finite loss. It will be discarded at the end \
-                    of the round." round=round loss=loss[i]
-                    keep[i] = false
-                else
-                    if maximize
-                        if loss[i] > best
-                            best = loss[i]
-                        else
-                            tied = false
-                        end
-                    else 
-                        if loss[i] < best
-                            best = loss[i]
-                        else
-                            tied = false
-                        end
-                    end
-                end
+            end
+            if !isfinite(loss[i])
+                @warn "An arm has a non-finite loss. It will be discarded at the end of \
+                the round." round=round loss=loss[i]
+                keep[i] = false
+                continue
+            end
+            if maximize ? loss[i] > best : loss[i] < best
+                best = loss[i]
+            end
+        end
+
+        tied = true
+        for i in eachindex(arms)
+            if !keep[i]
+                continue
+            end
+            if loss[i] != best
+                tied = false
+                break
             end
         end
 
@@ -346,7 +346,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     temp = min_diff / log(p)
     if iszero(temp)
         throw(ArgumentError("Cannot calibrate annealing schedule; the initial loss of all \
-        arms is identical"))
+        arms is identical."))
     end
 
     return _sasha!(rng, arms, loss, 1, temp, train, val, maximize, max_ties, fit_kwargs, callback)
