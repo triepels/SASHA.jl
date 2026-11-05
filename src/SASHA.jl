@@ -187,10 +187,10 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
                 arms[i] = _fit!(arms[i], train, fit_kwargs)
             catch e
                 if isa(e, MethodError) || isa(e, InterruptException)
-                    throw(e)
+                    rethrow()
                 else
                     @warn "Arm cannot be fitted. It will be discarded at the end of the \
-                    round." exception=(e, catch_backtrace())
+                    round." round=round exception=(e, catch_backtrace())
                     keep[i] = false
                 end
             end
@@ -204,31 +204,31 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
                     loss[i] = _loss(arms[i], val)
                 catch e
                     if isa(e, MethodError) || isa(e, InterruptException)
-                        throw(e)
+                        rethrow()
                     else
-                        @warn "An arm cannot be evaluated. It will be discarded at the end
-                        of the round." exception=(e, catch_backtrace())
+                        @warn "An arm cannot be evaluated. It will be discarded at the end \
+                        of the round." round=round exception=(e, catch_backtrace())
                         keep[i] = false
                     end
                 else
                     if !isfinite(loss[i])
                         @warn "An arm has a non-finite loss. It will be discarded at the \
-                        end of the round." loss=loss[i]
+                        end of the round." round=round loss=loss[i]
                         keep[i] = false
                     else
                         if loss[i] == best
                             tied = true
-                            continue
                         elseif maximize
                             if loss[i] > best
                                 best = loss[i]
+                                tied = false
                             end
                         else 
                             if loss[i] < best
                                 best = loss[i]
+                                tied = false
                             end
                         end
-                        tied = false
                     end
                 end
             end
@@ -238,8 +238,8 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             ties += 1
             if ties > max_ties
                 @warn "Two or more arms were tied for the best loss in $ties consecutive \
-                rounds. Choosing the winning arm at random." loss=best
-                keepat!(arms, rand(rng, keys(arms)))
+                rounds. Choosing the winning arm at random." round=round loss=best
+                keepat!(arms, rand(rng, findall(keep)))
                 return first(arms)
             end
         else
@@ -248,7 +248,11 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
 
         for i in eachindex(arms)
             if keep[i]
-                diff[i] = best - loss[i]
+                if maximize
+                    diff[i] = loss[i] - best
+                else
+                    diff[i] = best - loss[i]
+                end
                 keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
             end
         end
@@ -258,6 +262,10 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         keepat!(diff, keep)
         keepat!(keep, keep)
 
+        if length(arms) == 0
+            throw(ErrorException("Optimization failed; all arms have been discarded."))
+        end
+
         state = (round=round, arms=arms, loss=loss, best=best, temp=temp, elapsed=time()-t)
         if callback(state)
             ind = maximize ? argmax(loss) : argmin(loss)
@@ -266,10 +274,6 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         end
 
         round += 1
-    end
-
-    if length(arms) == 0
-        throw(ErrorException("Optimization failed; all arms have been discarded."))
     end
 
     return first(arms)
@@ -339,7 +343,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
 
     temp = min_diff / log(p)
     if iszero(temp)
-        throw(ArgumentError("Cannot calibrate annealing schedule; the inital loss of all \
+        throw(ArgumentError("Cannot calibrate annealing schedule; the initial loss of all \
         arms are identical."))
     end
 
