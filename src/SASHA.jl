@@ -196,38 +196,39 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             end
         end
         
-        tied = false
+        tied = true
         best = maximize ? typemin(eltype(loss)) : typemax(eltype(loss))
         for i in eachindex(arms)
-            if keep[i]
-                try
-                    loss[i] = _loss(arms[i], val)
-                catch e
-                    if isa(e, MethodError) || isa(e, InterruptException)
-                        rethrow()
-                    else
-                        @warn "An arm cannot be evaluated. It will be discarded at the end \
-                        of the round." round=round exception=(e, catch_backtrace())
-                        keep[i] = false
-                    end
+            if !keep[i]
+                continue
+            end
+            try
+                loss[i] = _loss(arms[i], val)
+            catch e
+                if isa(e, MethodError) || isa(e, InterruptException)
+                    rethrow()
                 else
-                    if !isfinite(loss[i])
-                        @warn "An arm has a non-finite loss. It will be discarded at the \
-                        end of the round." round=round loss=loss[i]
-                        keep[i] = false
-                    else
-                        if loss[i] == best
-                            tied = true
-                        elseif maximize
-                            if loss[i] > best
-                                best = loss[i]
-                                tied = false
-                            end
-                        else 
-                            if loss[i] < best
-                                best = loss[i]
-                                tied = false
-                            end
+                    @warn "An arm cannot be evaluated. It will be discarded at the end of \
+                    the round." round=round exception=(e, catch_backtrace())
+                    keep[i] = false
+                end
+            else
+                if !isfinite(loss[i])
+                    @warn "An arm has a non-finite loss. It will be discarded at the end \
+                    of the round." round=round loss=loss[i]
+                    keep[i] = false
+                else
+                    if maximize
+                        if loss[i] > best
+                            best = loss[i]
+                        else
+                            tied = false
+                        end
+                    else 
+                        if loss[i] < best
+                            best = loss[i]
+                        else
+                            tied = false
                         end
                     end
                 end
@@ -237,7 +238,7 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         if tied
             ties += 1
             if ties > max_ties
-                @warn "Two or more arms were tied for the best loss in $ties consecutive \
+                @warn "All remaining arms were tied for the best loss in $ties consecutive \
                 rounds. Choosing the winning arm at random." round=round loss=best
                 keepat!(arms, rand(rng, findall(keep)))
                 return first(arms)
@@ -247,14 +248,15 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         end
 
         for i in eachindex(arms)
-            if keep[i]
-                if maximize
-                    diff[i] = loss[i] - best
-                else
-                    diff[i] = best - loss[i]
-                end
-                keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
+            if !keep[i]
+                continue
             end
+            if maximize
+                diff[i] = loss[i] - best
+            else
+                diff[i] = best - loss[i]
+            end
+            keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
         end
 
         keepat!(arms, keep)
@@ -296,8 +298,8 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
-- `max_ties::Int=3`: maximum number of consecutive rounds in which two or more arms may be
-  tied for the best loss. The optimization terminates when this number is exceeded.
+- `max_ties::Int=3`: maximum number of consecutive rounds in which all remaining arms may
+  be tied for the best loss. The optimization terminates when this number is exceeded.
 - `fit_kwargs::NamedTuple=NamedTuple()`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
 - `callback::Function=(state) -> false`: callback function that is called at the end of
@@ -344,7 +346,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
     temp = min_diff / log(p)
     if iszero(temp)
         throw(ArgumentError("Cannot calibrate annealing schedule; the initial loss of all \
-        arms are identical."))
+        arms is identical"))
     end
 
     return _sasha!(rng, arms, loss, 1, temp, train, val, maximize, max_ties, fit_kwargs, callback)
@@ -393,8 +395,8 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
-- `max_ties::Int=3`: maximum number of consecutive rounds in which two or more arms may be
-  tied for the best loss. The optimization terminates when this number is exceeded.
+- `max_ties::Int=3`: maximum number of consecutive rounds in which all remaining arms may
+  be tied for the best loss. The optimization terminates when this number is exceeded.
 - `fit_kwargs::NamedTuple=NamedTuple()`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
 - `callback::Function=(state) -> false`: callback function that is called at the end of
