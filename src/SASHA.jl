@@ -224,49 +224,47 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             end
         end
 
-        n = count(keep)
-        if n == 0
+        if count(keep) == 0
             throw(ErrorException("Optimization failed; all arms have been discarded."))
-        elseif n == 1
-            keepat!(arms, findfirst(keep))
-            return first(arms)
         end
 
-        tied = true
-        for i in eachindex(arms)
-            if !keep[i]
-                continue
+        if count(keep) > 1
+            tied = true
+            for i in eachindex(arms)
+                if !keep[i]
+                    continue
+                end
+                if loss[i] != best
+                    tied = false
+                    break
+                end
             end
-            if loss[i] != best
-                tied = false
-                break
-            end
-        end
 
-        if tied
-            ties += 1
-            if ties > max_ties
-                @warn "All remaining arms were tied for the best loss in $ties consecutive \
-                rounds. Choosing the winning arm at random." round=round loss=best
-                keepat!(arms, rand(rng, findall(keep)))
-                return first(arms)
-            end
-        else
-            ties = 0
-        end
-
-        for i in eachindex(arms)
-            if !keep[i]
-                continue
-            end
-            if maximize
-                diff[i] = loss[i] - best
+            if tied
+                ties += 1
+                if ties > max_ties
+                    @warn "All remaining arms were tied for the best loss in $ties consecutive \
+                    rounds. Choosing the winning arm at random." round=round loss=best
+                    keepat!(arms, rand(rng, findall(keep)))
+                    return first(arms)
+                end
             else
-                diff[i] = best - loss[i]
+                ties = 0
             end
-            keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
-        end
 
+            for i in eachindex(arms)
+                if !keep[i]
+                    continue
+                end
+                if maximize
+                    diff[i] = loss[i] - best
+                else
+                    diff[i] = best - loss[i]
+                end
+                keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
+            end
+        end
+    
         keepat!(arms, keep)
         keepat!(loss, keep)
         keepat!(diff, keep)
