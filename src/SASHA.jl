@@ -174,41 +174,83 @@ function sasha_load_checkpoint(filename::AbstractString)
 end
 
 function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp::Real, train::Any, val::Any,
-        maximize::Bool, fit_kwargs::NamedTuple, callback::Function)
+        maximize::Bool, max_ties::Int, fit_kwargs::NamedTuple, callback::Function)
+    t = time()
+    ties = 0
     keep = Vector{Bool}(undef, length(arms))
     diff = Vector{eltype(loss)}(undef, length(arms))
 
-    t = time()
+    fill!(keep, true)
     while length(arms) > 1
         @sync for i in eachindex(arms)
-            Threads.@spawn arms[i] = _fit!(arms[i], train, fit_kwargs)
+            Threads.@spawn try
+                arms[i] = _fit!(arms[i], train, fit_kwargs)
+            catch e
+                if isa(e, MethodError) || isa(e, InterruptException)
+                    throw(e)
+                else
+                    @warn "Arm cannot be fitted. It will be discarded at the end of the \
+                    round." exception=(e, catch_backtrace())
+                    keep[i] = false
+                end
+            end
         end
         
+        tied = false
+        best = maximize ? typemin(eltype(loss)) : typemax(eltype(loss))
         for i in eachindex(arms)
-            loss[i] = _loss(arms[i], val)
+            if keep[i]
+                try
+                    loss[i] = _loss(arms[i], val)
+                catch e
+                    if isa(e, MethodError) || isa(e, InterruptException)
+                        throw(e)
+                    else
+                        @warn "An arm cannot be evaluated. It will be discarded at the end
+                        of the round." exception=(e, catch_backtrace())
+                        keep[i] = false
+                    end
+                else
+                    if !isfinite(loss[i])
+                        @warn "An arm has a non-finite loss. It will be discarded at the \
+                        end of the round." loss=loss[i]
+                        keep[i] = false
+                    else
+                        if loss[i] == best
+                            tied = true
+                            continue
+                        elseif maximize
+                            if loss[i] > best
+                                best = loss[i]
+                            end
+                        else 
+                            if loss[i] < best
+                                best = loss[i]
+                            end
+                        end
+                        tied = false
+                    end
+                end
+            end
         end
 
-        if all(isequal(first(loss)), loss)
-            @warn "Cannot determine the best arm; the loss of all arms are identical. \
-            Choosing the winning arm at random."
-            keepat!(arms, rand(rng, keys(arms)))
-            return first(arms)
-        end
-
-        if maximize
-            best = maximum(loss)
-            for i in eachindex(diff)
-                diff[i] = loss[i] - best
+        if tied
+            ties += 1
+            if ties > max_ties
+                @warn "Two or more arms were tied for the best loss in $ties consecutive \
+                rounds. Choosing the winning arm at random." loss=best
+                keepat!(arms, rand(rng, keys(arms)))
+                return first(arms)
             end
         else
-            best = minimum(loss)
-            for i in eachindex(diff)
-                diff[i] = best - loss[i]
-            end
+            ties = 0
         end
 
-        for i in eachindex(keep)
-            keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
+        for i in eachindex(arms)
+            if keep[i]
+                diff[i] = best - loss[i]
+                keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
+            end
         end
 
         keepat!(arms, keep)
@@ -224,6 +266,10 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         end
 
         round += 1
+    end
+
+    if length(arms) == 0
+        throw(ErrorException("Optimization failed; all arms have been discarded."))
     end
 
     return first(arms)
@@ -246,6 +292,8 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
+- `max_ties::Int=3`: maximum number of consecutive rounds in which two or more arms may be
+  tied for the best loss. The optimization terminates when this number is exceeded.
 - `fit_kwargs::NamedTuple=NamedTuple()`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
 - `callback::Function=(state) -> false`: callback function that is called at the end of
@@ -275,7 +323,7 @@ Successive Halving.
 See also [`sasha`](@ref)
 """
 function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.8,
-        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
+        maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
     !isempty(arms) || throw(ArgumentError("no arms to optimize"))
     0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
 
@@ -295,7 +343,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         arms are identical."))
     end
 
-    return _sasha!(rng, arms, loss, 1, temp, train, val, maximize, fit_kwargs, callback)
+    return _sasha!(rng, arms, loss, 1, temp, train, val, maximize, max_ties, fit_kwargs, callback)
 end
 
 sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
@@ -309,10 +357,10 @@ Resumes the SASHA optimizer at a saved checkpoint by modifying `checkpoint` in-p
 See also [`sasha_save_checkpoint`](@ref), [`sasha_load_checkpoint`](@ref)
 """
 function sasha!(rng::AbstractRNG, checkpoint::SashaCheckpoint, train::Any, val::Any;
-        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
+        maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
     !isempty(checkpoint.arms) || throw(ArgumentError("no arms to optimize"))
     loss = map(arm -> _loss(arm, val), checkpoint.arms)
-    return _sasha!(rng, checkpoint.arms, loss, checkpoint.round + 1, checkpoint.temp, train, val, maximize, fit_kwargs, callback)
+    return _sasha!(rng, checkpoint.arms, loss, checkpoint.round + 1, checkpoint.temp, train, val, maximize, max_ties, fit_kwargs, callback)
 end
 
 sasha!(checkpoint::SashaCheckpoint, train::Any, val::Any; kwargs...) =
@@ -341,6 +389,8 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `p::Real=0.8`: acceptance probability of the worst arm at the start of the
   optimization.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
+- `max_ties::Int=3`: maximum number of consecutive rounds in which two or more arms may be
+  tied for the best loss. The optimization terminates when this number is exceeded.
 - `fit_kwargs::NamedTuple=NamedTuple()`: optional keyword arguments that are passed on to
   `fit!` when fitting an arm.
 - `callback::Function=(state) -> false`: callback function that is called at the end of
@@ -370,18 +420,18 @@ Successive Halving.
 See also [`sasha!`](@ref)
 """
 function sasha(rng::AbstractRNG, T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any;
-        p::Real=0.8, maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false) where V<:NamedTuple
+        p::Real=0.8, maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false) where V<:NamedTuple
     arms = map(x -> T(; x...), space)
-    return sasha!(rng, arms, train, val, p=p, maximize=maximize, fit_kwargs=fit_kwargs, callback=callback)
+    return sasha!(rng, arms, train, val, p=p, maximize=maximize, max_ties=max_ties, fit_kwargs=fit_kwargs, callback=callback)
 end
 
 sasha(T::Type, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
     sasha(default_rng(), T, space, train, val; kwargs...)
 
 function sasha(rng::AbstractRNG, f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any;
-        p::Real=0.8, maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false) where V<:NamedTuple
+        p::Real=0.8, maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false) where V<:NamedTuple
     arms = map(f, space)
-    return sasha!(rng, arms, train, val, p=p, maximize=maximize, fit_kwargs=fit_kwargs, callback=callback)
+    return sasha!(rng, arms, train, val, p=p, maximize=maximize, max_ties=max_ties, fit_kwargs=fit_kwargs, callback=callback)
 end
 
 sasha(f::Function, space::Union{Space, Vector{V}}, train::Any, val::Any; kwargs...) where V<:NamedTuple =
@@ -395,8 +445,8 @@ Resumes the SASHA optimizer at a saved checkpoint.
 See also [`sasha_save_checkpoint`](@ref), [`sasha_load_checkpoint`](@ref)
 """
 function sasha(rng::AbstractRNG, checkpoint::SashaCheckpoint, train::Any, val::Any;
-        maximize::Bool=false, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
-    return sasha!(rng, deepcopy(checkpoint), train, val, maximize=maximize, fit_kwargs=fit_kwargs, callback=callback)
+        maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
+    return sasha!(rng, deepcopy(checkpoint), train, val, maximize=maximize, max_ties=max_ties, fit_kwargs=fit_kwargs, callback=callback)
 end
 
 sasha(checkpoint::SashaCheckpoint, train::Any, val::Any; kwargs...) =
