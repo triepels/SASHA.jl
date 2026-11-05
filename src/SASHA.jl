@@ -238,7 +238,6 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
                     break
                 end
             end
-
             if tied
                 ties += 1
                 if ties > max_ties
@@ -250,7 +249,6 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             else
                 ties = 0
             end
-
             for i in eachindex(arms)
                 if !keep[i]
                     continue
