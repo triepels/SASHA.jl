@@ -224,6 +224,14 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             end
         end
 
+        n = count(keep)
+        if n == 0
+            throw(ErrorException("Optimization failed; all arms have been discarded."))
+        elseif n == 1
+            keepat!(arms, findfirst(keep))
+            return first(arms)
+        end
+
         tied = true
         for i in eachindex(arms)
             if !keep[i]
@@ -263,10 +271,6 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         keepat!(loss, keep)
         keepat!(diff, keep)
         keepat!(keep, keep)
-
-        if length(arms) == 0
-            throw(ErrorException("Optimization failed; all arms have been discarded."))
-        end
 
         state = (round=round, arms=arms, loss=loss, best=best, temp=temp, elapsed=time()-t)
         if callback(state)
