@@ -196,9 +196,11 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector{T}, round::Int, te
             end
         end
         
-        best = maximize ? typemin(T) : typemax(T)
+        mn, mx = typemax(T), typemin(T)
         for i in eachindex(arms)
-            keep[i] || continue
+            if !keep[i]
+                continue
+            end
             try
                 loss[i] = _loss(arms[i], val)
             catch e
@@ -217,16 +219,16 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector{T}, round::Int, te
                 keep[i] = false
                 continue
             end
-            if maximize ? loss[i] > best : loss[i] < best
-                best = loss[i]
-            end
+            mn = min(mn, loss[i])
+            mx = max(mx, loss[i])
         end
 
         n_arms = count(keep)
         if n_arms == 0
             throw(ErrorException("Optimization failed; all arms have been discarded."))
         elseif n_arms > 1
-            if all(i -> !keep[i] || loss[i] == best, eachindex(keep))
+            best = maximize ? mx : mn
+            if mn == mx
                 ties += 1
                 if ties > max_ties
                     @warn "All remaining arms were tied for the best loss in $ties consecutive \
@@ -238,11 +240,12 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector{T}, round::Int, te
             else
                 ties = 0
                 if isnothing(temp)
-                    max_gap = maximum(i -> keep[i] ? abs(loss[i] - best) : zero(T), eachindex(keep))
-                    temp = round * max_gap / log(1 / p)
+                    temp = -round * (mx - mn) / log(p)
                 end
                 for i in eachindex(arms)
-                    keep[i] || continue
+                    if !keep[i]
+                        continue
+                    end
                     keep[i] = rand(rng) ≤ exp(-round * abs(loss[i] - best) / temp)
                 end 
             end
