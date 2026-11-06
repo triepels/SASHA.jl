@@ -175,12 +175,13 @@ end
 
 function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp::Real, train::Any, val::Any,
         maximize::Bool, max_ties::Int, fit_kwargs::NamedTuple, callback::Function)
-    t = time()
-    ties = 0
     keep = Vector{Bool}(undef, length(arms))
     diff = Vector{eltype(loss)}(undef, length(arms))
 
     fill!(keep, true)
+
+    ties = 0
+    t = time()
     while length(arms) > 1
         round += 1
 
@@ -257,7 +258,7 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         else
             ties = 0
         end
-        
+
         for i in eachindex(arms)
             if !keep[i]
                 continue
