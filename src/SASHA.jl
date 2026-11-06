@@ -301,7 +301,7 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `arms`: all remaining arms. 
 - `loss`: loss of all remaining arms.
 - `best`: loss of the winning arm.
-- `temp`: initial temperature, or nothing until it has been calibrated.
+- `temp`: initial temperature, or `nothing` until it has been calibrated.
 - `p`: acceptance probability used for calibration.
 - `elapsed`: time elapsed since the start of the optimization in seconds.
 
@@ -385,7 +385,7 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `arms`: all remaining arms. 
 - `loss`: loss of all remaining arms.
 - `best`: loss of the winning arm.
-- `temp`: initial temperature, or nothing until it has been calibrated.
+- `temp`: initial temperature, or `nothing` until it has been calibrated.
 - `p`: acceptance probability used for calibration.
 - `elapsed`: time elapsed since the start of the optimization in seconds.
 
