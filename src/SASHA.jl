@@ -364,7 +364,7 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
 
     temp = min_diff / log(p)
 
-    return _sasha!(rng, arms, loss, 1, temp, train, val, maximize, max_ties, fit_kwargs, callback)
+    return _sasha!(rng, arms, loss, 0, temp, train, val, maximize, max_ties, fit_kwargs, callback)
 end
 
 sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
