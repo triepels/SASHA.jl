@@ -184,7 +184,7 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
     while length(arms) > 1
         @sync for i in eachindex(arms)
             Threads.@spawn try
-                arms[i] = _fit!(arms[i], train, fit_kwargs)
+                _fit!(arms[i], train, fit_kwargs)
             catch e
                 if isa(e, MethodError) || isa(e, InterruptException)
                     rethrow()
