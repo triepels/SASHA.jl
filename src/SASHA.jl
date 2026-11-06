@@ -340,6 +340,13 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
 
     loss = map(arm -> _loss(arm, val), arms)
 
+    for i in eachindex(arms)
+        if !isfinite(loss[i])
+            throw(ArgumentError("Cannot calibrate initial temperature; one or more arms \
+            have a non-finite loss."))
+        end
+    end
+
     if maximize
         best = maximum(loss)
         min_diff = minimum((l) -> l - best, loss)
@@ -348,11 +355,12 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         min_diff = minimum((l) -> best - l, loss)
     end
 
-    temp = min_diff / log(p)
-    if iszero(temp)
+    if iszero(min_diff)
         throw(ArgumentError("Cannot calibrate annealing schedule; the initial loss of all \
         arms is identical."))
     end
+
+    temp = min_diff / log(p)
 
     return _sasha!(rng, arms, loss, 1, temp, train, val, maximize, max_ties, fit_kwargs, callback)
 end
