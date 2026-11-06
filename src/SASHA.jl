@@ -250,7 +250,7 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector{T}, round::Int, te
                         continue
                     end
                     keep[i] = rand(rng) ≤ exp(-round * abs(loss[i] - best) / temp)
-                end 
+                end
             end
         end
 
@@ -301,14 +301,14 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `arms`: all remaining arms. 
 - `loss`: loss of all remaining arms.
 - `best`: loss of the winning arm.
-- `temp`: initial temperature. Is `nothing` until the temperature is calibrated.
+- `temp`: initial temperature, or nothing until it has been calibrated.
 - `p`: acceptance probability used for calibration.
 - `elapsed`: time elapsed since the start of the optimization in seconds.
 
 # Notes
 The annealing process differs from the one described in (Triepels, 2023) in that no initial
 temperature has to be provided. Instead, the initial temperature is calibrated in the first
-round in which not all arms are tied such that the worst arm has an acceptance probability
+round in which not all arms are tied, such that the worst arm has an acceptance probability
 of `p`. This makes `p` independent of the scale of the loss function, so the same value can
 be used across models and loss functions. The temperature in round `n` is the initial
 temperature divided by `n`.
@@ -385,14 +385,14 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `arms`: all remaining arms. 
 - `loss`: loss of all remaining arms.
 - `best`: loss of the winning arm.
-- `temp`: initial temperature. Is `nothing` until the temperature is calibrated.
+- `temp`: initial temperature, or nothing until it has been calibrated.
 - `p`: acceptance probability used for calibration.
 - `elapsed`: time elapsed since the start of the optimization in seconds.
 
 # Notes
 The annealing process differs from the one described in (Triepels, 2023) in that no initial
 temperature has to be provided. Instead, the initial temperature is calibrated in the first
-round in which not all arms are tied such that the worst arm has an acceptance probability
+round in which not all arms are tied, such that the worst arm has an acceptance probability
 of `p`. This makes `p` independent of the scale of the loss function, so the same value can
 be used across models and loss functions. The temperature in round `n` is the initial
 temperature divided by `n`.
