@@ -182,6 +182,8 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
 
     fill!(keep, true)
     while length(arms) > 1
+        round += 1
+
         @sync for i in eachindex(arms)
             Threads.@spawn try
                 _fit!(arms[i], train, fit_kwargs)
@@ -255,6 +257,7 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         else
             ties = 0
         end
+        
         for i in eachindex(arms)
             if !keep[i]
                 continue
@@ -279,8 +282,6 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             keepat!(arms, ind)
             return first(arms)
         end
-
-        round += 1
     end
 
     return first(arms)
@@ -379,7 +380,7 @@ function sasha!(rng::AbstractRNG, checkpoint::SashaCheckpoint, train::Any, val::
         maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
     !isempty(checkpoint.arms) || throw(ArgumentError("no arms to optimize"))
     loss = map(arm -> _loss(arm, val), checkpoint.arms)
-    return _sasha!(rng, checkpoint.arms, loss, checkpoint.round + 1, checkpoint.temp, train, val, maximize, max_ties, fit_kwargs, callback)
+    return _sasha!(rng, checkpoint.arms, loss, checkpoint.round, checkpoint.temp, train, val, maximize, max_ties, fit_kwargs, callback)
 end
 
 sasha!(checkpoint::SashaCheckpoint, train::Any, val::Any; kwargs...) =
