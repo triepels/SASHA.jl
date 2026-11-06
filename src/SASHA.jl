@@ -89,9 +89,8 @@ _fit!(model::Any, data::Any, kwargs::NamedTuple) = fit!(model, data; kwargs...)
 """
     fit!(model, data; kwargs)
 
-Fits `model` on `data` based on any additional provided keyword arguments and returns
-the fitted model. Must be implemented for any custom model type before using the SASHA
-optimization functions.
+Fit `model` on `data` in-place based on any additional provided keyword arguments. Must be
+implemented for any custom model type before using the SASHA optimization functions.
 
 See also [`sasha`](@ref), [`sasha!`](@ref).
 """
