@@ -1,5 +1,5 @@
 # Description
-Implements the SASHA optimizer for hyperparameter parameter optimization in Julia.
+Implements the SASHA optimizer for hyperparameter optimization in Julia.
 
 # Installation
 Run the following code to install the package:
@@ -36,7 +36,7 @@ Function `loss` estimates how well the model performs on (out-of-sample) data:
 
 ```julia
 julia> function loss(model::MyModel, data)
-           # Code to evalute loss of the model...
+           # Code to evaluate loss of the model...
        end
 ```
 
