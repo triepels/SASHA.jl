@@ -122,7 +122,7 @@ function sasha_progress(state)
 end
 
 """
-    SashaCheckpoint(arms, round, temp)
+    SashaCheckpoint(arms, round, temp, p)
 
 Create a SASHA checkpoint to resume the optimization at the provided state later on.
 """
@@ -196,7 +196,7 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector{T}, round::Int, te
                 end
             end
         end
-        
+
         mn, mx = typemax(T), typemin(T)
         for i in eachindex(arms)
             if !keep[i]
@@ -228,7 +228,7 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector{T}, round::Int, te
         if n_arms == 0
             throw(ErrorException("Optimization failed; all arms have been discarded."))
         end
-        
+
         best = maximize ? mx : mn
         if n_arms > 1
             if mn == mx
@@ -283,7 +283,8 @@ Multiple threads will be used (if available) to fit all remaining arms each roun
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
-- `p::Real=0.8`: acceptance probability of the worst arm in the first round.
+- `p::Real=0.8`: acceptance probability of the worst arm in the round in which the
+  temperature is calibrated.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `max_ties::Int=3`: maximum number of consecutive rounds in which all remaining arms may
   be tied for the best loss. The optimization terminates when this number is exceeded.
@@ -300,17 +301,17 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `arms`: all remaining arms. 
 - `loss`: loss of all remaining arms.
 - `best`: loss of the winning arm.
-- `temp`: initial temperature.
-- `p`: acceptance probability of the worst arm in the first round.
+- `temp`: initial temperature. Is `nothing` until the temperature is calibrated.
+- `p`: acceptance probability used for calibration.
 - `elapsed`: time elapsed since the start of the optimization in seconds.
 
 # Notes
 The annealing process differs from the one described in (Triepels, 2023) in that no initial
-temperature has to be provided. Instead, it is calibrated in the first round in which all 
-arms are not tied such that the worst arm has an acceptance probability of `p`. This makes
-`p` independent of the scale of the loss function, so the same value can be used across
-models and loss functions. The temperature in round `n` is the initial temperature divided
-by `n`.
+temperature has to be provided. Instead, the initial temperature is calibrated in the first
+round in which not all arms are tied such that the worst arm has an acceptance probability
+of `p`. This makes `p` independent of the scale of the loss function, so the same value can
+be used across models and loss functions. The temperature in round `n` is the initial
+temperature divided by `n`.
 
 # References
 Triepels, R. (2023). SASHA: Hyperparameter Optimization by Simulated Annealing and
@@ -366,7 +367,8 @@ Multiple threads will be used (if available) to fit all remaining arms each roun
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
-- `p::Real=0.8`: acceptance probability of the worst arm in the first round.
+- `p::Real=0.8`: acceptance probability of the worst arm in the round in which the
+  temperature is calibrated.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `max_ties::Int=3`: maximum number of consecutive rounds in which all remaining arms may
   be tied for the best loss. The optimization terminates when this number is exceeded.
@@ -383,17 +385,17 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `arms`: all remaining arms. 
 - `loss`: loss of all remaining arms.
 - `best`: loss of the winning arm.
-- `temp`: initial temperature.
-- `p`: acceptance probability of the worst arm in the first round.
+- `temp`: initial temperature. Is `nothing` until the temperature is calibrated.
+- `p`: acceptance probability used for calibration.
 - `elapsed`: time elapsed since the start of the optimization in seconds.
 
 # Notes
 The annealing process differs from the one described in (Triepels, 2023) in that no initial
-temperature has to be provided. Instead, it is calibrated in the first round in which all 
-arms are not tied such that the worst arm has an acceptance probability of `p`. This makes
-`p` independent of the scale of the loss function, so the same value can be used across
-models and loss functions. The temperature in round `n` is the initial temperature divided
-by `n`.
+temperature has to be provided. Instead, the initial temperature is calibrated in the first
+round in which not all arms are tied such that the worst arm has an acceptance probability
+of `p`. This makes `p` independent of the scale of the loss function, so the same value can
+be used across models and loss functions. The temperature in round `n` is the initial
+temperature divided by `n`.
 
 # References
 Triepels, R. (2023). SASHA: Hyperparameter Optimization by Simulated Annealing and
