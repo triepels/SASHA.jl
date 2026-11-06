@@ -320,7 +320,7 @@ number of available threads can be determined by calling `Threads.nthreads()`.
 - `arms`: all remaining arms. 
 - `loss`: loss of all remaining arms.
 - `best`: loss of the winning arm.
-- `temp`: current temperature.
+- `temp`: initial temperature.
 - `elapsed`: time elapsed since the start of the optimization in seconds.
 
 # Notes
