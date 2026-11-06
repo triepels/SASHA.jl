@@ -173,17 +173,14 @@ function sasha_load_checkpoint(filename::AbstractString)
     return deserialize(filename)::SashaCheckpoint
 end
 
-function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp::Real, train::Any, val::Any,
-        maximize::Bool, max_ties::Int, fit_kwargs::NamedTuple, callback::Function)
-    keep = Vector{Bool}(undef, length(arms))
-    diff = Vector{eltype(loss)}(undef, length(arms))
-
-    fill!(keep, true)
-
+function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector{T}, round::Int, temp::Union{Nothing, Real}, p::Real, train::Any, val::Any,
+        maximize::Bool, max_ties::Int, fit_kwargs::NamedTuple, callback::Function) where T
     ties = 0
     t = time()
+    keep = Vector{Bool}(undef, length(arms))
     while length(arms) > 1
         round += 1
+        fill!(keep, true)
 
         @sync for i in eachindex(arms)
             Threads.@spawn try
@@ -199,11 +196,9 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             end
         end
         
-        best = maximize ? typemin(eltype(loss)) : typemax(eltype(loss))
+        best = maximize ? typemin(T) : typemax(T)
         for i in eachindex(arms)
-            if !keep[i]
-                continue
-            end
+            keep[i] || continue
             try
                 loss[i] = _loss(arms[i], val)
             catch e
@@ -230,52 +225,32 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
         n_arms = count(keep)
         if n_arms == 0
             throw(ErrorException("Optimization failed; all arms have been discarded."))
-        elseif n_arms == 1
-            Base.@goto discard
-        end
-
-        tied = true
-        for i in eachindex(arms)
-            if !keep[i]
-                continue
-            end
-            if loss[i] != best
-                tied = false
-                break
-            end
-        end
-        if tied
-            ties += 1
-            if ties > max_ties
-                @warn "All remaining arms were tied for the best loss in $ties consecutive \
-                rounds. Choosing the winning arm at random." round=round loss=best
-                inds = shuffle!(rng, findall(keep))
-                for i in Iterators.drop(inds, 1)
-                    keep[i] = false
+        elseif n_arms > 1
+            if all(i -> !keep[i] || loss[i] == best, eachindex(keep))
+                ties += 1
+                if ties > max_ties
+                    @warn "All remaining arms were tied for the best loss in $ties consecutive \
+                    rounds. Choosing the winning arm at random." round=round loss=best
+                    for i in Iterators.drop(shuffle!(rng, findall(keep)), 1)
+                        keep[i] = false
+                    end
                 end
-                Base.@goto discard
+            else
+                ties = 0
+                if isnothing(temp)
+                    max_gap = maximum(i -> keep[i] ? abs(loss[i] - best) : zero(T), eachindex(keep))
+                    temp = round * max_gap / log(1 / p)
+                end
+                for i in eachindex(arms)
+                    keep[i] || continue
+                    keep[i] = rand(rng) ≤ exp(-round * abs(loss[i] - best) / temp)
+                end 
             end
-        else
-            ties = 0
         end
 
-        for i in eachindex(arms)
-            if !keep[i]
-                continue
-            end
-            if maximize
-                diff[i] = loss[i] - best
-            else
-                diff[i] = best - loss[i]
-            end
-            keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
-        end
-    
-        @label discard
         keepat!(arms, keep)
         keepat!(loss, keep)
-        keepat!(diff, keep)
-        keepat!(keep, keep)
+        resize!(keep, length(arms))
 
         state = (round=round, arms=arms, loss=loss, best=best, temp=temp, elapsed=time()-t)
         if callback(state)
@@ -302,8 +277,7 @@ Multiple threads will be used (if available) to fit all remaining arms each roun
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
-- `p::Real=0.8`: acceptance probability of the worst arm at the start of the
-  optimization.
+- `p::Real=0.8`: acceptance probability of the worst arm in the first round.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `max_ties::Int=3`: maximum number of consecutive rounds in which all remaining arms may
   be tied for the best loss. The optimization terminates when this number is exceeded.
@@ -339,32 +313,8 @@ function sasha!(rng::AbstractRNG, arms::Vector, train::Any, val::Any; p::Real=0.
         maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
     !isempty(arms) || throw(ArgumentError("no arms to optimize"))
     0 < p < 1 || throw(ArgumentError("p must be in (0,1)"))
-
     loss = map(arm -> _loss(arm, val), arms)
-
-    for i in eachindex(arms)
-        if !isfinite(loss[i])
-            throw(ArgumentError("Cannot calibrate initial temperature; one or more arms \
-            have a non-finite loss."))
-        end
-    end
-
-    if maximize
-        best = maximum(loss)
-        min_diff = minimum((l) -> l - best, loss)
-    else
-        best = minimum(loss)
-        min_diff = minimum((l) -> best - l, loss)
-    end
-
-    if iszero(min_diff)
-        throw(ArgumentError("Cannot calibrate annealing schedule; the initial loss of all \
-        arms is identical."))
-    end
-
-    temp = min_diff / log(p)
-
-    return _sasha!(rng, arms, loss, 0, temp, train, val, maximize, max_ties, fit_kwargs, callback)
+    return _sasha!(rng, arms, loss, 0, nothing, p, train, val, maximize, max_ties, fit_kwargs, callback)
 end
 
 sasha!(arms::Vector, train::Any, val::Any; kwargs...) = 
@@ -381,7 +331,7 @@ function sasha!(rng::AbstractRNG, checkpoint::SashaCheckpoint, train::Any, val::
         maximize::Bool=false, max_ties::Int=3, fit_kwargs::NamedTuple=NamedTuple(), callback::Function=(state) -> false)
     !isempty(checkpoint.arms) || throw(ArgumentError("no arms to optimize"))
     loss = map(arm -> _loss(arm, val), checkpoint.arms)
-    return _sasha!(rng, checkpoint.arms, loss, checkpoint.round, checkpoint.temp, train, val, maximize, max_ties, fit_kwargs, callback)
+    return _sasha!(rng, checkpoint.arms, loss, checkpoint.round, checkpoint.temp, 0, train, val, maximize, max_ties, fit_kwargs, callback)
 end
 
 sasha!(checkpoint::SashaCheckpoint, train::Any, val::Any; kwargs...) =
@@ -407,8 +357,7 @@ Multiple threads will be used (if available) to fit all remaining arms each roun
 number of available threads can be determined by calling `Threads.nthreads()`.
 
 # Keyword Arguments
-- `p::Real=0.8`: acceptance probability of the worst arm at the start of the
-  optimization.
+- `p::Real=0.8`: acceptance probability of the worst arm in the first round.
 - `maximize::Bool=false`: whether the loss of the arms should be maximized.
 - `max_ties::Int=3`: maximum number of consecutive rounds in which all remaining arms may
   be tied for the best loss. The optimization terminates when this number is exceeded.
