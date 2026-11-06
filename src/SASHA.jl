@@ -3,7 +3,7 @@ module SASHA
 using Random: AbstractRNG, default_rng, SamplerTrivial
 using Serialization: serialize, deserialize
 
-import Random: rand
+import Random: rand, shuffle!
 
 export fit!, loss, sasha!, sasha, SashaCheckpoint, sasha_load_checkpoint, sasha_progress,
         sasha_save_checkpoint, Space, space
@@ -224,44 +224,50 @@ function _sasha!(rng::AbstractRNG, arms::Vector, loss::Vector, round::Int, temp:
             end
         end
 
-        n = count(keep)
-        if n == 0
+        n_arms = count(keep)
+        if n_arms == 0
             throw(ErrorException("Optimization failed; all arms have been discarded."))
-        elseif n > 1
-            tied = true
-            for i in eachindex(arms)
-                if !keep[i]
-                    continue
-                end
-                if loss[i] != best
-                    tied = false
-                    break
-                end
+        elseif n_arms == 1
+            Base.@goto discard
+        end
+
+        tied = true
+        for i in eachindex(arms)
+            if !keep[i]
+                continue
             end
-            if tied
-                ties += 1
-                if ties > max_ties
-                    @warn "All remaining arms were tied for the best loss in $ties consecutive \
-                    rounds. Choosing the winning arm at random." round=round loss=best
-                    keepat!(arms, rand(rng, findall(keep)))
-                    return first(arms)
-                end
-            else
-                ties = 0
-            end
-            for i in eachindex(arms)
-                if !keep[i]
-                    continue
-                end
-                if maximize
-                    diff[i] = loss[i] - best
-                else
-                    diff[i] = best - loss[i]
-                end
-                keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
+            if loss[i] != best
+                tied = false
+                break
             end
         end
+        if tied
+            ties += 1
+            if ties > max_ties
+                @warn "All remaining arms were tied for the best loss in $ties consecutive \
+                rounds. Choosing the winning arm at random." round=round loss=best
+                inds = shuffle!(rng, findall(keep))
+                for i in Iterators.drop(inds, 1)
+                    keep[i] = false
+                end
+                Base.@goto discard
+            end
+        else
+            ties = 0
+        end
+        for i in eachindex(arms)
+            if !keep[i]
+                continue
+            end
+            if maximize
+                diff[i] = loss[i] - best
+            else
+                diff[i] = best - loss[i]
+            end
+            keep[i] = rand(rng) ≤ exp(round * diff[i] / temp)
+        end
     
+        @label discard
         keepat!(arms, keep)
         keepat!(loss, keep)
         keepat!(diff, keep)
